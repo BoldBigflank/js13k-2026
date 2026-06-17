@@ -1,4 +1,24 @@
 {
   "name": "w-xr",
-  "packageManager": "yarn@4.9.4"
+  "version": "1.0.0",
+  "packageManager": "yarn@4.9.4",
+  "scripts": {
+    "dev": "l13 dev",
+    "build": "l13 build --roadroller",
+    "preview": "yarn build --roadroller && l13 preview",
+    "prepare": "husky",
+    "tsc": "tsc"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "l13": "^0.0.22",
+    "prettier": "3.6.2",
+    "roadroller": "^2.1.0",
+    "typescript": "^5.9.2",
+    "vite": "^7.0.6",
+    "vite-plugin-externals": "^0.6.2"
+  },
+  "lint-staged": {
+    "**/*": "prettier --write --ignore-unknown"
+  }
 }
