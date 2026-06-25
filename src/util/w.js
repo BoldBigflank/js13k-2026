@@ -638,6 +638,161 @@ W = {
       ? (b.m41 - a.m.m41) ** 2 + (b.m42 - a.m.m42) ** 2 + (b.m43 - a.m.m43) ** 2
       : 0,
 
+  // Ray from a 4x4 pose matrix (origin + -Z direction)
+  rayFromMatrix: (matrix) => {
+    const m = new DOMMatrix(matrix);
+    const tip = m.transformPoint(new DOMPoint(0, 0, -1, 0));
+    const direction = [tip.x, tip.y, tip.z];
+    const len = Math.hypot(...direction) || 1;
+    return {
+      origin: [m.m41, m.m42, m.m43],
+      direction: direction.map((v) => v / len),
+    };
+  },
+
+  // Ray vs axis-aligned bounding box; returns entry distance or null
+  rayAabb: (origin, direction, min, max) => {
+    let tmin = -Infinity;
+    let tmax = Infinity;
+
+    for (let i = 0; i < 3; i++) {
+      if (Math.abs(direction[i]) < 1e-8) {
+        if (origin[i] < min[i] || origin[i] > max[i]) return null;
+        continue;
+      }
+
+      let t1 = (min[i] - origin[i]) / direction[i];
+      let t2 = (max[i] - origin[i]) / direction[i];
+      if (t1 > t2) [t1, t2] = [t2, t1];
+      tmin = Math.max(tmin, t1);
+      tmax = Math.min(tmax, t2);
+      if (tmin > tmax) return null;
+    }
+
+    if (tmax < 0) return null;
+    return tmin >= 0 ? tmin : 0;
+  },
+
+  // Closest hit on selectable scene objects from a ray matrix; null if none
+  raycast: (matrix) => {
+    const ray = W.rayFromMatrix(matrix);
+    let closest = null;
+
+    const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+    const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    const cross = (a, b) => [
+      a[1] * b[2] - a[2] * b[1],
+      a[2] * b[0] - a[0] * b[2],
+      a[0] * b[1] - a[1] * b[0],
+    ];
+
+    const rayTriangle = (origin, direction, v0, v1, v2) => {
+      const e1 = sub(v1, v0);
+      const e2 = sub(v2, v0);
+      const p = cross(direction, e2);
+      const det = dot(e1, p);
+      if (Math.abs(det) < 1e-8) return null;
+
+      const invDet = 1 / det;
+      const tvec = sub(origin, v0);
+      const u = dot(tvec, p) * invDet;
+      if (u < 0 || u > 1) return null;
+
+      const q = cross(tvec, e1);
+      const v = dot(direction, q) * invDet;
+      if (v < 0 || u + v > 1) return null;
+
+      const t = dot(e2, q) * invDet;
+      return t >= 0 ? t : null;
+    };
+
+    const rayMesh = (origin, direction, model) => {
+      const verts = model.vertices;
+      let meshT = null;
+
+      const testTriangle = (i0, i1, i2) => {
+        const t = rayTriangle(
+          origin,
+          direction,
+          [verts[i0], verts[i0 + 1], verts[i0 + 2]],
+          [verts[i1], verts[i1 + 1], verts[i1 + 2]],
+          [verts[i2], verts[i2 + 1], verts[i2 + 2]],
+        );
+        if (t != null && (meshT == null || t < meshT)) meshT = t;
+      };
+
+      if (model.indices) {
+        for (let i = 0; i < model.indices.length; i += 3) {
+          testTriangle(
+            model.indices[i] * 3,
+            model.indices[i + 1] * 3,
+            model.indices[i + 2] * 3,
+          );
+        }
+      } else {
+        for (let i = 0; i < verts.length; i += 9) {
+          testTriangle(i, i + 3, i + 6);
+        }
+      }
+
+      return meshT;
+    };
+
+    for (const name in W.next) {
+      const object = W.next[name];
+      if (!object?.selectable || !W.models[object.type]) continue;
+
+      const world = W.animation(name);
+      const inv = world.inverse();
+      const localOrigin = inv.transformPoint(
+        new DOMPoint(ray.origin[0], ray.origin[1], ray.origin[2], 1),
+      );
+      const localDir = inv.transformPoint(
+        new DOMPoint(ray.direction[0], ray.direction[1], ray.direction[2], 0),
+      );
+      const dir = [localDir.x, localDir.y, localDir.z];
+      const dirLen = Math.hypot(...dir) || 1;
+      const localRay = {
+        origin: [localOrigin.x, localOrigin.y, localOrigin.z],
+        direction: dir.map((v) => v / dirLen),
+      };
+
+      if (
+        W.rayAabb(
+          localRay.origin,
+          localRay.direction,
+          [-0.5, -0.5, -0.5],
+          [0.5, 0.5, 0.5],
+        ) == null
+      )
+        continue;
+
+      const meshT = rayMesh(localRay.origin, localRay.direction, W.models[object.type]);
+      if (meshT == null) continue;
+
+      const hitLocal = [
+        localRay.origin[0] + localRay.direction[0] * meshT,
+        localRay.origin[1] + localRay.direction[1] * meshT,
+        localRay.origin[2] + localRay.direction[2] * meshT,
+      ];
+      const hitWorld = world.transformPoint(
+        new DOMPoint(hitLocal[0], hitLocal[1], hitLocal[2], 1),
+      );
+      const point = [hitWorld.x, hitWorld.y, hitWorld.z];
+      const distance =
+        (point[0] - ray.origin[0]) * ray.direction[0] +
+        (point[1] - ray.origin[1]) * ray.direction[1] +
+        (point[2] - ray.origin[2]) * ray.direction[2];
+      if (distance < 0) continue;
+
+      if (!closest || distance < closest.distance) {
+        closest = { name, object, distance, point };
+      }
+    }
+
+    return closest;
+  },
+
   // Set the ambient light level (0 to 1)
   ambient: (a) => (W.ambientLight = a),
 
