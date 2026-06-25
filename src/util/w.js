@@ -53,6 +53,7 @@ W = {
       uniform mat4 pv, eye, head, m, im;           // Uniform transformation matrices: projection * view, eye, head (billboard look-at), model, inverse model
       uniform vec4 bb;                              // If the current shape is a billboard: bb = [w, h, 1.0, 0.0]
       uniform vec4 rep;                           // Texture repeat: [w, h, d, mode] (1: plane/billboard, 2: cube)
+      uniform float ts;                           // Texture scale (tiles per unit at 1)
       out vec4 v_pos, v_col, v_uv, v_normal;        // Varyings sent to the fragment shader: position, color, texture coordinates, normal (if any)
       void main() {
         if (bb.z > 0.) {                            // Billboards look at the head position (world Y-up, same vertices per eye)
@@ -77,6 +78,7 @@ W = {
           else if (an.y >= an.z) uv2 *= rep.xz;
           else uv2 *= rep.xy;
         }
+        if (ts != 1.) uv2 *= ts;
         v_uv = vec4(uv2, uv.zw);
         v_normal = transpose(inverse(m)) * normal;  // recompute normals to match model thansformation
       }`,
@@ -224,6 +226,7 @@ W = {
         b: "888",
         mode: 4,
         mix: 0,
+        ts: 1,
       }),
       ...state,
       f: 0,
@@ -356,6 +359,7 @@ W = {
 
   // Render an object
   render: (object, dt, buffer, model = W.models[object.type]) => {
+    const ts = W.lerp(object.n, "ts") ?? 1;
     const repeat =
       W.plugin.builtinShapes &&
       ["plane", "billboard", "cube"].includes(object.type)
@@ -363,6 +367,7 @@ W = {
           ? 2
           : 1
         : 0;
+    const wrap = repeat || ts !== 1;
 
     // If the object has a texture
     if (object.t) {
@@ -371,12 +376,12 @@ W = {
       W.gl.texParameteri(
         3553 /* TEXTURE_2D */,
         10242 /* TEXTURE_WRAP_S */,
-        repeat ? 10497 /* REPEAT */ : 33071 /* CLAMP_TO_EDGE */,
+        wrap ? 10497 /* REPEAT */ : 33071 /* CLAMP_TO_EDGE */,
       );
       W.gl.texParameteri(
         3553 /* TEXTURE_2D */,
         10243 /* TEXTURE_WRAP_T */,
-        repeat ? 10497 /* REPEAT */ : 33071 /* CLAMP_TO_EDGE */,
+        wrap ? 10497 /* REPEAT */ : 33071 /* CLAMP_TO_EDGE */,
       );
       W.gl.texParameteri(
         3553 /* TEXTURE_2D */,
@@ -565,6 +570,7 @@ W = {
         object.d,
         repeat,
       );
+      W.gl.uniform1f(W.gl.getUniformLocation(W.program, "ts"), ts);
 
       // Set up the indices (if any)
       if (model.indicesBuffer) {

@@ -80,10 +80,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         W.camera({ z: 5 });
         W.light({ z: -1 });
         W.group({ n: 'G', ry: 0, z: -2 });
-        W.plane({ g: 'G', x: -1, y: 1, w: 1, h: 1, t: tex });
+        W.plane({ g: 'G', x: -1, y: 1, w: 1, h: 1, ts: 2, t: tex });
         W.billboard({ g: 'G', x: 1, y: 1, w: 1, h: 2, t: tex });
         W.cube({ g: 'G', x: -1.5, y: -1, w: 2, h: 1, d: 3, t: tex });
-        W.pyramid({ g: 'G', x: 0, y: -1, t: tex });
+        W.pyramid({ g: 'G', x: 0, y: -1, ts: 3, t: tex });
         W.sphere({ g: 'G', x: 1.5, y: -1, s: 1, t: tex });
 
         let xrButton = null;
