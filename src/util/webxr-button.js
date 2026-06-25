@@ -561,14 +561,18 @@ export class WebXRInputSelection {
    * @param {Object} [options]
    * @param {number} [options.batonWidth=0.02]
    * @param {number} [options.batonLength=0.1]
+   * @param {number} [options.laserWidth=0.01]
+   * @param {number} [options.laserLength=10]
    * @param {number} [options.hitSphereSize=0.03]
    * @param {Object} [options.colors]
    * @param {Record<string, ShapeSelectionHandlers>} [options.shapes] per-type handlers for this instance
    */
   constructor(options = {}) {
     this.options = options;
-    this.batonWidth = options.batonWidth ?? 0.02;
-    this.batonLength = options.batonLength ?? 0.1;
+    this.batonWidth = options.batonWidth ?? 0.03;
+    this.batonLength = options.batonLength ?? 0.15;
+    this.laserWidth = options.laserWidth ?? 0.01;
+    this.laserLength = options.laserLength ?? 10;
     this.hitSphereSize = options.hitSphereSize ?? 0.03;
     this.colors = {
       left: "48f",
@@ -714,22 +718,25 @@ export class WebXRInputSelection {
     frame.session.inputSources.forEach((inputSource, index) => {
       const hand = handIndex(inputSource);
       const color = this.colors[inputSource.handedness || "none"] || this.colors.none;
-      const batonId = inputId("xr_input", inputSource, index);
+      const batonId = inputId("xr_baton", inputSource, index);
+      const laserId = inputId("xr_laser", inputSource, index);
       const hitId = inputId("xr_input_hit", inputSource, index);
-      activeIds.add(batonId);
 
-      const gripSpace = inputSource.gripSpace || inputSource.targetRaySpace;
-      const gripPose = frame.getPose(gripSpace, refSpace);
-      if (gripPose) {
+      const hit = this.rayHit(frame, inputSource);
+      this.updateHover(hand, hit, inputSource, frame);
+
+      const rayPose = frame.getPose(inputSource.targetRaySpace, refSpace);
+
+      if (rayPose) {
         this.trackInputObject(
           batonId,
           {
             n: batonId,
             type: "cube",
-            M: new DOMMatrix(gripPose.transform.matrix).translateSelf(
+            M: new DOMMatrix(rayPose.transform.matrix).translateSelf(
               0,
               0,
-              -this.batonLength / 2,
+              this.batonLength / 2,
             ),
             x: 0,
             y: 0,
@@ -745,10 +752,36 @@ export class WebXRInputSelection {
           },
           activeIds,
         );
-      }
 
-      const hit = this.rayHit(frame, inputSource);
-      this.updateHover(hand, hit, inputSource, frame);
+        const length =
+          hit?.distance > 0 ? hit.distance : this.laserLength;
+
+        this.trackInputObject(
+          laserId,
+          {
+            n: laserId,
+            type: "cube",
+            M: new DOMMatrix(rayPose.transform.matrix).translateSelf(
+              0,
+              0,
+              -length / 2,
+            ),
+            x: 0,
+            y: 0,
+            z: 0,
+            rx: 0,
+            ry: 0,
+            rz: 0,
+            w: this.laserWidth,
+            h: this.laserWidth,
+            d: length,
+            b: color,
+            mix: 1,
+            unlit: true,
+          },
+          activeIds,
+        );
+      }
 
       if (hit?.point) {
         this.trackInputObject(
@@ -763,6 +796,7 @@ export class WebXRInputSelection {
             s: 1,
             b: color,
             mix: 1,
+            unlit: true,
           },
           activeIds,
         );
