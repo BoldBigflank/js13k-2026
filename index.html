@@ -20,6 +20,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 -->
 <html>
+
 <head>
     <meta charset='utf-8'>
     <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
@@ -31,6 +32,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <script src='src/util/w.js'></script>
     <title>Immersive VR Session</title>
 </head>
+
 <body>
     <header>
         <details open>
@@ -45,22 +47,44 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     </header>
     <main style='text-align: center;'>
         <p>Click 'Enter XR' to see content</p>
-        <canvas id=c width=600 height=500></canvas>
+        <canvas id=c width=1024 height=768></canvas>
     </main>
     <script type="module">
-        import {WebXRButton} from './src/util/webxr-button.js';
+        import { WebXRButton } from './src/util/webxr-button.js';
 
         const canvas = document.getElementById('c');
         W.reset(canvas, { xrCompatible: true });
 
+        function makeDemoTexture(size = 64) {
+            const c = document.createElement('canvas');
+            c.id = 'demo';
+            c.width = c.height = size;
+            const ctx = c.getContext('2d');
+            ctx.imageSmoothingEnabled = false;
+            const cells = 4;
+            const cell = size / cells;
+            for (let y = 0; y < cells; y++) {
+                for (let x = 0; x < cells; x++) {
+                    ctx.fillStyle = (x + y) % 2 ? '#4a90d9' : '#e8c547';
+                    ctx.fillRect(x * cell, y * cell, cell, cell);
+                }
+            }
+            ctx.strokeStyle = '#222';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(1, 1, size - 2, size - 2);
+            return c;
+        }
+
+        const tex = makeDemoTexture();
+
         W.camera({ z: 5 });
         W.light({ z: -1 });
         W.group({ n: 'G', ry: 0, z: -2 });
-        W.plane({ g: 'G', x: -1, y: 1 });
-        W.billboard({ g: 'G', x: 1, y: 1 });
-        W.cube({ g: 'G', x: -1.5, y: -1 });
-        W.pyramid({ g: 'G', x: 0, y: -1 });
-        W.sphere({ g: 'G', x: 1.5, y: -1, s: 1 });
+        W.plane({ g: 'G', x: -1, y: 1, w: 1, h: 1, t: tex });
+        W.billboard({ g: 'G', x: 1, y: 1, w: 1, h: 2, t: tex });
+        W.cube({ g: 'G', x: -1.5, y: -1, w: 2, h: 1, d: 3, t: tex });
+        W.pyramid({ g: 'G', x: 0, y: -1, t: tex });
+        W.sphere({ g: 'G', x: 1.5, y: -1, s: 1, t: tex });
 
         let xrButton = null;
         let xrRefSpace = null;
@@ -127,11 +151,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             for (const view of pose.views) {
                 const viewport = glLayer.getViewport(view);
                 W.gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
-                W.drawView(view.projectionMatrix, view.transform, dt);
+                W.drawView(view.projectionMatrix, view.transform, pose.transform, dt);
             }
         }
 
         initXR();
     </script>
 </body>
+
 </html>

@@ -23,7 +23,8 @@ W = {
     W.next = {}; // Objects next states
     W.textures = {}; // Textures list
     W.xrActive = false; // XR active flag
-    W._xrEye = null; // Head pose during XR (for transparent sort)
+    W._xrEye = null; // Per-eye pose during XR
+    W._xrHead = null; // Head pose during XR (billboard look-at, transparent sort)
 
     // WebGL context
     const contextAttribs = { ...(options.context || {}) };
@@ -49,17 +50,34 @@ W = {
       `#version 300 es
       precision highp float;                        // Set default float precision
       in vec4 pos, col, uv, normal;                 // Vertex attributes: position, color, texture coordinates, normal (if any)
-      uniform mat4 pv, eye, m, im;                  // Uniform transformation matrices: projection * view, eye, model, inverse model
+      uniform mat4 pv, eye, head, m, im;           // Uniform transformation matrices: projection * view, eye, head (billboard look-at), model, inverse model
       uniform vec4 bb;                              // If the current shape is a billboard: bb = [w, h, 1.0, 0.0]
+      uniform vec4 rep;                           // Texture repeat: [w, h, d, mode] (1: plane/billboard, 2: cube)
       out vec4 v_pos, v_col, v_uv, v_normal;        // Varyings sent to the fragment shader: position, color, texture coordinates, normal (if any)
-      void main() {                                 
-        gl_Position = pv * (                        // Set vertex position: p * v * v_pos
-          v_pos = bb.z > 0.                         // Set v_pos varying:
-          ? m[3] + eye * (pos * bb)                 // Billboards always face the camera:  p * v * distance + eye * (position * [w, h, 1.0, 0.0])
-          : m * pos                                 // Other objects rotate normally:      p * v * m * position
-        );                                          
-        v_col = col;                                // Set varyings 
-        v_uv = uv;
+      void main() {
+        if (bb.z > 0.) {                            // Billboards look at the head position (world Y-up, same vertices per eye)
+          vec3 center = m[3].xyz;
+          vec3 toCamera = head[3].xyz - center;
+          float dist = length(toCamera);
+          vec3 forward = dist > 0. ? toCamera / dist : vec3(0., 0., 1.);
+          vec3 upRef = abs(forward.y) > 0.999 ? head[1].xyz : vec3(0., 1., 0.);
+          vec3 right = normalize(cross(upRef, forward));
+          vec3 up = cross(forward, right);
+          v_pos = vec4(center + right * pos.x * bb.x + up * pos.y * bb.y, 1.);
+        } else {
+          v_pos = m * pos;                          // Other objects rotate normally: p * v * m * position
+        }
+        gl_Position = pv * v_pos;
+        v_col = col;                                // Set varyings
+        vec2 uv2 = uv.xy;
+        if (rep.w == 1.) uv2 *= rep.xy;            // Plane / billboard: 1 texture tile per unit
+        else if (rep.w == 2.) {                     // Cube: tile per face based on w, h, d
+          vec3 an = abs(normal.xyz);
+          if (an.x >= an.y && an.x >= an.z) uv2 *= rep.zy;
+          else if (an.y >= an.z) uv2 *= rep.xz;
+          else uv2 *= rep.xy;
+        }
+        v_uv = vec4(uv2, uv.zw);
         v_normal = transpose(inverse(m)) * normal;  // recompute normals to match model thansformation
       }`,
     );
@@ -151,7 +169,16 @@ W = {
         5121 /* UNSIGNED_BYTE */,
         state.t,
       );
-      W.gl.generateMipmap(3553 /* TEXTURE_2D */);
+      W.gl.texParameteri(
+        3553 /* TEXTURE_2D */,
+        10241 /* TEXTURE_MIN_FILTER */,
+        9728 /* NEAREST */,
+      );
+      W.gl.texParameteri(
+        3553 /* TEXTURE_2D */,
+        10240 /* TEXTURE_MAG_FILTER */,
+        9728 /* NEAREST */,
+      );
       W.textures[state.t.id] = texture;
     }
 
@@ -228,6 +255,11 @@ W = {
       false,
       v.toFloat32Array(),
     );
+    W.gl.uniformMatrix4fv(
+      W.gl.getUniformLocation(W.program, "head"),
+      false,
+      v.toFloat32Array(),
+    );
 
     // Invert it to obtain the View matrix
     v.invertSelf();
@@ -246,16 +278,23 @@ W = {
   },
 
   // Draw one XR eye using WebXR view matrices
-  drawView: (projectionMatrix, viewTransform, dt) => {
-    const pose = new DOMMatrix(viewTransform.matrix);
-    W._xrEye = pose;
+  drawView: (projectionMatrix, viewTransform, headTransform, dt) => {
+    const eye = new DOMMatrix(viewTransform.matrix);
+    const head = new DOMMatrix(headTransform.matrix);
+    W._xrEye = eye;
+    W._xrHead = head;
     const pv = new DOMMatrix(projectionMatrix);
-    pv.multiplySelf(pose.inverse());
+    pv.multiplySelf(eye.inverse());
 
     W.gl.uniformMatrix4fv(
       W.gl.getUniformLocation(W.program, "eye"),
       false,
-      pose.toFloat32Array(),
+      eye.toFloat32Array(),
+    );
+    W.gl.uniformMatrix4fv(
+      W.gl.getUniformLocation(W.program, "head"),
+      false,
+      head.toFloat32Array(),
     );
     W.gl.uniformMatrix4fv(
       W.gl.getUniformLocation(W.program, "pv"),
@@ -309,6 +348,7 @@ W = {
   endXR: () => {
     W.xrActive = false;
     W._xrEye = null;
+    W._xrHead = null;
     W.lastFrame = undefined;
     W.gl.bindFramebuffer(W.gl.FRAMEBUFFER, null);
     setTimeout(W.draw, 16);
@@ -316,10 +356,38 @@ W = {
 
   // Render an object
   render: (object, dt, buffer, model = W.models[object.type]) => {
+    const repeat =
+      W.plugin.builtinShapes &&
+      ["plane", "billboard", "cube"].includes(object.type)
+        ? object.type === "cube"
+          ? 2
+          : 1
+        : 0;
+
     // If the object has a texture
     if (object.t) {
       // Set the texture's target (2D or cubemap)
       W.gl.bindTexture(3553 /* TEXTURE_2D */, W.textures[object.t.id]);
+      W.gl.texParameteri(
+        3553 /* TEXTURE_2D */,
+        10242 /* TEXTURE_WRAP_S */,
+        repeat ? 10497 /* REPEAT */ : 33071 /* CLAMP_TO_EDGE */,
+      );
+      W.gl.texParameteri(
+        3553 /* TEXTURE_2D */,
+        10243 /* TEXTURE_WRAP_T */,
+        repeat ? 10497 /* REPEAT */ : 33071 /* CLAMP_TO_EDGE */,
+      );
+      W.gl.texParameteri(
+        3553 /* TEXTURE_2D */,
+        10241 /* TEXTURE_MIN_FILTER */,
+        9728 /* NEAREST */,
+      );
+      W.gl.texParameteri(
+        3553 /* TEXTURE_2D */,
+        10240 /* TEXTURE_MAG_FILTER */,
+        9728 /* NEAREST */,
+      );
 
       // Pass texture 0 to the sampler
       W.gl.uniform1i(W.gl.getUniformLocation(W.program, "sampler"), 0);
@@ -489,6 +557,15 @@ W = {
         0,
       );
 
+      // Texture repeat for built-in plane, billboard and cube (1 tile per unit)
+      W.gl.uniform4f(
+        W.gl.getUniformLocation(W.program, "rep"),
+        object.w,
+        object.h,
+        object.d,
+        repeat,
+      );
+
       // Set up the indices (if any)
       if (model.indicesBuffer) {
         W.gl.bindBuffer(34963 /* ELEMENT_ARRAY_BUFFER */, model.indicesBuffer);
@@ -550,7 +627,7 @@ W = {
       : m,
 
   // Compute the distance squared between two objects (useful for sorting transparent items)
-  dist: (a, b = W._xrEye || W.next.camera?.m) =>
+  dist: (a, b = W._xrHead || W.next.camera?.m) =>
     b
       ? (b.m41 - a.m.m41) ** 2 + (b.m42 - a.m.m42) ** 2 + (b.m43 - a.m.m43) ** 2
       : 0,
@@ -906,6 +983,14 @@ if (W.plugin.builtinShapes) {
       0,
       1,
       0,
+    ],
+    normals: [
+      0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, // front
+      1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, // right
+      0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, // up
+      -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, // left
+      0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, // back
+      0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, // down
     ],
   });
   W.cube = (settings) => W.setState(settings, "cube");
