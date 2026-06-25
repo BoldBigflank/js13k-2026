@@ -41,7 +41,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 This sample demonstrates how to use an 'immersive-vr' XRSession to
                 present a W scene to an XR device. The scene also renders to the page
                 when not in XR.
-                <a class="back" href="./">Back</a>
             </p>
         </details>
     </header>
@@ -50,7 +49,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         <canvas id=c width=1024 height=768></canvas>
     </main>
     <script type="module">
-        import { WebXRButton } from './src/util/webxr-button.js';
+        import { WebXRButton, WebXRInputSelection } from './src/util/webxr-button.js';
 
         const canvas = document.getElementById('c');
         W.reset(canvas, { xrCompatible: true });
@@ -77,14 +76,29 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         const tex = makeDemoTexture();
 
+        const rotateObject = (ry) => {
+            return ({ name }) => W.move({ n: name, ry: ry, a: 1000 });
+        };
+
         W.camera({ z: 5 });
         W.light({ z: -1 });
         W.group({ n: 'G', ry: 0, z: -2 });
-        W.plane({ g: 'G', x: -1, y: 1, w: 1, h: 1, ts: 2, t: tex });
-        W.billboard({ g: 'G', x: 1, y: 1, w: 1, h: 2, t: tex });
-        W.cube({ g: 'G', x: -1.5, y: -1, w: 2, h: 1, d: 3, t: tex });
-        W.pyramid({ g: 'G', x: 0, y: -1, ts: 3, t: tex });
-        W.sphere({ g: 'G', x: 1.5, y: -1, s: 1, t: tex });
+        W.plane({
+            g: 'G', x: -1, y: 1, w: 1, h: 1, ts: 2, t: tex, selectable: true,
+            onSelectStart: rotateObject(90),
+            onSelectEnd: rotateObject(0),
+        });
+        W.billboard({ g: 'G', x: 1, y: 1, w: 1, h: 2, t: tex, selectable: true });
+        W.cube({
+            n: 'cube', g: 'G', x: -1.5, y: -1, w: 2, h: 1, d: 3, t: tex, selectable: true,
+            onSelectStart: rotateObject(90),
+            onSelectEnd: rotateObject(0),
+
+        });
+        W.pyramid({ g: 'G', x: 0, y: -1, ts: 3, t: tex, selectable: true });
+        W.sphere({ g: 'G', x: 1.5, y: -1, s: 1, t: tex, selectable: true });
+
+        const xrInput = new WebXRInputSelection();
 
         let xrButton = null;
         let xrRefSpace = null;
@@ -120,6 +134,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             W.startXR();
 
             xrRefSpace = await session.requestReferenceSpace('local');
+            xrInput.attach(session, () => xrRefSpace);
             session.requestAnimationFrame(onXRFrame);
         }
 
@@ -128,6 +143,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         }
 
         function onSessionEnded() {
+            xrInput.detach();
             xrButton.setSession(null);
             W.endXR();
             xrRefSpace = null;
@@ -143,6 +159,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
             const pose = frame.getViewerPose(xrRefSpace);
             if (!pose) return;
+
+            xrInput.update(frame);
 
             const glLayer = session.renderState.baseLayer;
             W.gl.bindFramebuffer(W.gl.FRAMEBUFFER, glLayer.framebuffer);

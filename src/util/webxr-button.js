@@ -326,8 +326,8 @@ export class WebXRButton {
     options.textXRNotFoundTitle = options.textXRNotFoundTitle || "VR NOT FOUND";
     options.textExitXRTitle = options.textExitXRTitle || "EXIT VR";
 
-    options.onRequestSession = options.onRequestSession || function () {};
-    options.onEndSession = options.onEndSession || function () {};
+    options.onRequestSession = options.onRequestSession || function () { };
+    options.onEndSession = options.onEndSession || function () { };
 
     options.injectCSS = options.injectCSS !== false;
 
@@ -530,3 +530,573 @@ const ifChild = (el, cssPrefix, suffix, fn) => {
   const c = el.querySelector("." + cssPrefix + "-" + suffix);
   c && fn(c);
 };
+
+//
+// XR input selection
+//
+
+const RENDERABLE_TYPES = new Set([
+  "cube",
+  "sphere",
+  "pyramid",
+  "plane",
+  "billboard",
+]);
+
+const handIndex = (inputSource) =>
+  inputSource.handedness === "left" ? 0 : 1;
+
+const inputBatonId = (inputSource, index) =>
+  `xr_input_${inputSource.handedness || "none"}_${index}`;
+
+const inputHitSphereId = (inputSource, index) =>
+  `xr_input_hit_${inputSource.handedness || "none"}_${index}`;
+
+const matrixToRay = (matrix) => {
+  const m = new DOMMatrix(matrix);
+  const origin = [m.m41, m.m42, m.m43];
+  const tip = m.transformPoint(new DOMPoint(0, 0, -1, 0));
+  const direction = [tip.x, tip.y, tip.z];
+  const len = Math.hypot(...direction) || 1;
+  return {
+    origin,
+    direction: direction.map((v) => v / len),
+  };
+};
+
+const rayAabb = (origin, direction, min, max) => {
+  let tmin = -Infinity;
+  let tmax = Infinity;
+
+  for (let i = 0; i < 3; i++) {
+    if (Math.abs(direction[i]) < 1e-8) {
+      if (origin[i] < min[i] || origin[i] > max[i]) return null;
+      continue;
+    }
+
+    let t1 = (min[i] - origin[i]) / direction[i];
+    let t2 = (max[i] - origin[i]) / direction[i];
+    if (t1 > t2) [t1, t2] = [t2, t1];
+    tmin = Math.max(tmin, t1);
+    tmax = Math.min(tmax, t2);
+    if (tmin > tmax) return null;
+  }
+
+  if (tmax < 0) return null;
+  return tmin >= 0 ? tmin : 0;
+};
+
+const vec3 = {
+  dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
+  cross: (a, b) => [
+    a[1] * b[2] - a[2] * b[1],
+    a[2] * b[0] - a[0] * b[2],
+    a[0] * b[1] - a[1] * b[0],
+  ],
+  sub: (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]],
+  add: (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]],
+  scale: (a, s) => [a[0] * s, a[1] * s, a[2] * s],
+  len: (a) => Math.hypot(a[0], a[1], a[2]),
+  normalize: (a) => {
+    const l = Math.hypot(a[0], a[1], a[2]) || 1;
+    return [a[0] / l, a[1] / l, a[2] / l];
+  },
+};
+
+const RAY_EPS = 1e-8;
+
+const rayTriangle = (origin, direction, v0, v1, v2) => {
+  const e1 = vec3.sub(v1, v0);
+  const e2 = vec3.sub(v2, v0);
+  const p = vec3.cross(direction, e2);
+  const det = vec3.dot(e1, p);
+  if (Math.abs(det) < RAY_EPS) return null;
+
+  const invDet = 1 / det;
+  const tvec = vec3.sub(origin, v0);
+  const u = vec3.dot(tvec, p) * invDet;
+  if (u < 0 || u > 1) return null;
+
+  const q = vec3.cross(tvec, e1);
+  const v = vec3.dot(direction, q) * invDet;
+  if (v < 0 || u + v > 1) return null;
+
+  const t = vec3.dot(e2, q) * invDet;
+  return t >= 0 ? t : null;
+};
+
+const rayMesh = (origin, direction, model) => {
+  const verts = model.vertices;
+  let closest = null;
+
+  const testTriangle = (i0, i1, i2) => {
+    const v0 = [verts[i0], verts[i0 + 1], verts[i0 + 2]];
+    const v1 = [verts[i1], verts[i1 + 1], verts[i1 + 2]];
+    const v2 = [verts[i2], verts[i2 + 1], verts[i2 + 2]];
+    const t = rayTriangle(origin, direction, v0, v1, v2);
+    if (t != null && (closest == null || t < closest)) closest = t;
+  };
+
+  if (model.indices) {
+    for (let i = 0; i < model.indices.length; i += 3) {
+      const i0 = model.indices[i] * 3;
+      const i1 = model.indices[i + 1] * 3;
+      const i2 = model.indices[i + 2] * 3;
+      testTriangle(i0, i1, i2);
+    }
+  } else {
+    for (let i = 0; i < verts.length; i += 9) {
+      testTriangle(i, i + 3, i + 6);
+    }
+  }
+
+  return closest;
+};
+
+const raySphere = (origin, direction, radius = 0.5) => {
+  const b =
+    2 *
+    (origin[0] * direction[0] +
+      origin[1] * direction[1] +
+      origin[2] * direction[2]);
+  const c =
+    origin[0] ** 2 + origin[1] ** 2 + origin[2] ** 2 - radius ** 2;
+  const disc = b * b - 4 * c;
+  if (disc < 0) return null;
+
+  const sqrt = Math.sqrt(disc);
+  let t = (-b - sqrt) / 2;
+  if (t < 0) t = (-b + sqrt) / 2;
+  return t >= 0 ? t : null;
+};
+
+const rayBillboard = (ray, object, world) => {
+  const head = W._xrHead || W.animation("camera");
+  if (!head) return null;
+
+  const center = [world.m41, world.m42, world.m43];
+  const headPos = [head.m41, head.m42, head.m43];
+  const toCamera = vec3.sub(headPos, center);
+  const forward = vec3.normalize(toCamera);
+  const upRef =
+    Math.abs(forward[1]) > 0.999
+      ? [head.m21, head.m22, head.m23]
+      : [0, 1, 0];
+  const right = vec3.normalize(vec3.cross(upRef, forward));
+  const up = vec3.cross(forward, right);
+  const hw = (object.w ?? 1) / 2;
+  const hh = (object.h ?? 1) / 2;
+
+  const corner = (sx, sy) =>
+    vec3.add(
+      center,
+      vec3.add(vec3.scale(right, sx * hw), vec3.scale(up, sy * hh)),
+    );
+
+  const v0 = corner(1, 1);
+  const v1 = corner(-1, 1);
+  const v2 = corner(-1, -1);
+  const v3 = corner(1, -1);
+
+  let closest = null;
+  for (const [a, b, c] of [
+    [v0, v1, v2],
+    [v0, v2, v3],
+  ]) {
+    const t = rayTriangle(ray.origin, ray.direction, a, b, c);
+    if (t != null && (closest == null || t < closest)) closest = t;
+  }
+
+  return closest;
+};
+
+const localHitToWorld = (localRay, t, world, ray) => {
+  const hitLocal = vec3.add(
+    localRay.origin,
+    vec3.scale(localRay.direction, t),
+  );
+  const hitWorld = world.transformPoint(
+    new DOMPoint(hitLocal[0], hitLocal[1], hitLocal[2], 1),
+  );
+  const point = [hitWorld.x, hitWorld.y, hitWorld.z];
+  const distance = vec3.dot(vec3.sub(point, ray.origin), ray.direction);
+  return distance >= 0 ? { distance, point } : null;
+};
+
+const raycastShape = (ray, localRay, object, world) => {
+  switch (object.type) {
+    case "sphere": {
+      const t = raySphere(localRay.origin, localRay.direction, 0.5);
+      return t == null ? null : localHitToWorld(localRay, t, world, ray);
+    }
+    case "billboard": {
+      const t = rayBillboard(ray, object, world);
+      if (t == null) return null;
+      const point = vec3.add(ray.origin, vec3.scale(ray.direction, t));
+      return { distance: t, point };
+    }
+    default: {
+      const model = W.models[object.type];
+      if (!model) return null;
+      const t = rayMesh(localRay.origin, localRay.direction, model);
+      return t == null ? null : localHitToWorld(localRay, t, world, ray);
+    }
+  }
+};
+
+const hitTestSelectableObjects = (rayMatrix) => {
+  if (typeof W === "undefined") return null;
+
+  const ray = matrixToRay(rayMatrix);
+  let closest = null;
+
+  for (const name in W.next) {
+    const object = W.next[name];
+    if (!object?.selectable || !RENDERABLE_TYPES.has(object.type)) continue;
+    if (!W.models[object.type]) continue;
+
+    const world = W.animation(name);
+    const inv = world.inverse();
+    const localOrigin = inv.transformPoint(
+      new DOMPoint(ray.origin[0], ray.origin[1], ray.origin[2], 1),
+    );
+    const localDir = inv.transformPoint(
+      new DOMPoint(ray.direction[0], ray.direction[1], ray.direction[2], 0),
+    );
+    const dir = [localDir.x, localDir.y, localDir.z];
+    const dirLen = Math.hypot(...dir) || 1;
+    const localRay = {
+      origin: [localOrigin.x, localOrigin.y, localOrigin.z],
+      direction: dir.map((v) => v / dirLen),
+    };
+
+    const aabbT = rayAabb(
+      localRay.origin,
+      localRay.direction,
+      [-0.5, -0.5, -0.5],
+      [0.5, 0.5, 0.5],
+    );
+    if (aabbT == null) continue;
+
+    const hit = raycastShape(ray, localRay, object, world);
+    if (!hit) continue;
+
+    if (!closest || hit.distance < closest.distance) {
+      closest = { name, object, distance: hit.distance, point: hit.point };
+    }
+  }
+
+  return closest;
+};
+
+/** @type {Record<string, ShapeSelectionHandlers>} */
+const registeredShapeHandlers = {};
+
+export class WebXRInputSelection {
+  /**
+   * Register selection handlers for a shape type.
+   * @param {string} type W shape type, or "default" for all shapes
+   * @param {ShapeSelectionHandlers} handlers
+   */
+  static registerShape(type, handlers) {
+    registeredShapeHandlers[type] = {
+      ...registeredShapeHandlers[type],
+      ...handlers,
+    };
+  }
+
+  /**
+   * @param {Object} [options]
+   * @param {number} [options.batonWidth=0.02]
+   * @param {number} [options.batonLength=0.1]
+   * @param {number} [options.hitSphereSize=0.03]
+   * @param {Object} [options.colors]
+   * @param {Record<string, ShapeSelectionHandlers>} [options.shapes] per-type handlers for this instance
+   */
+  constructor(options = {}) {
+    this.options = options;
+    this.batonWidth = options.batonWidth ?? 0.02;
+    this.batonLength = options.batonLength ?? 0.1;
+    this.hitSphereSize = options.hitSphereSize ?? 0.03;
+    this.colors = {
+      left: "48f",
+      right: "f44",
+      none: "888",
+      ...options.colors,
+    };
+    this.shapes = options.shapes || {};
+
+    this._session = null;
+    this._getRefSpace = null;
+    this._inputObjectIds = new Set();
+    this._objectBases = new Map();
+    this._selected = [null, null];
+    this._hovered = [null, null];
+
+    this._onSelectStart = (ev) => this.__onSelectStart(ev);
+    this._onSelect = (ev) => this.__onSelect(ev);
+    this._onSelectEnd = (ev) => this.__onSelectEnd(ev);
+  }
+
+  /**
+   * @param {string} name
+   * @param {Object} object
+   * @returns {{ w: number, h: number, d: number, b: string }}
+   */
+  getBase(name, object) {
+    if (!this._objectBases.has(name)) {
+      this._objectBases.set(name, {
+        w: object.w ?? 1,
+        h: object.h ?? 1,
+        d: object.d ?? 1,
+        b: object.b ?? "888",
+      });
+    }
+    return this._objectBases.get(name);
+  }
+
+  /**
+   * @param {string} method
+   * @param {Object} object
+   * @returns {((ctx: SelectionContext) => void)|undefined}
+   */
+  getHandler(method, object) {
+    return (
+      object?.[method] ??
+      registeredShapeHandlers.default?.[method] ??
+      registeredShapeHandlers[object.type]?.[method] ??
+      this.shapes.default?.[method] ??
+      this.shapes[object.type]?.[method]
+    );
+  }
+
+  /**
+   * @param {string} method
+   * @param {Partial<SelectionContext>} ctx
+   */
+  dispatch(method, ctx) {
+    const fn = this.getHandler(method, ctx.object);
+    if (typeof fn === "function") fn(ctx);
+  }
+
+  /**
+   * @param {XRSession} session
+   * @param {Function} getRefSpace returns the active XRReferenceSpace
+   */
+  attach(session, getRefSpace) {
+    this.detach();
+    this._session = session;
+    this._getRefSpace = getRefSpace;
+
+    session.addEventListener("selectstart", this._onSelectStart);
+    session.addEventListener("select", this._onSelect);
+    session.addEventListener("selectend", this._onSelectEnd);
+  }
+
+  /**
+   * @param {XRFrame} frame
+   */
+  update(frame) {
+    if (!this._session || typeof W === "undefined") return;
+
+    const refSpace = this._getRefSpace?.();
+    if (!refSpace) return;
+
+    const activeIds = new Set();
+
+    frame.session.inputSources.forEach((inputSource, index) => {
+      const hand = handIndex(inputSource);
+      const batonId = inputBatonId(inputSource, index);
+      const hitId = inputHitSphereId(inputSource, index);
+      activeIds.add(batonId);
+
+      const gripSpace = inputSource.gripSpace || inputSource.targetRaySpace;
+      const gripPose = frame.getPose(gripSpace, refSpace);
+      if (gripPose) {
+        const handedness = inputSource.handedness || "none";
+        const color = this.colors[handedness] || this.colors.none;
+        const batonMatrix = new DOMMatrix(gripPose.transform.matrix).translateSelf(
+          0,
+          0,
+          -this.batonLength / 2,
+        );
+
+        W.setState({
+          n: batonId,
+          type: "cube",
+          M: batonMatrix,
+          x: 0,
+          y: 0,
+          z: 0,
+          rx: 0,
+          ry: 0,
+          rz: 0,
+          w: this.batonWidth,
+          h: this.batonWidth,
+          d: this.batonLength,
+          b: color,
+          mix: 1,
+        });
+        this._inputObjectIds.add(batonId);
+      }
+
+      const rayPose = frame.getPose(inputSource.targetRaySpace, refSpace);
+      const hit = rayPose
+        ? hitTestSelectableObjects(rayPose.transform.matrix)
+        : null;
+      const nextHover = hit?.name ?? null;
+      const prevHover = this._hovered[hand];
+
+      if (prevHover !== nextHover) {
+        if (prevHover && W.next[prevHover]) {
+          this.dispatch("onHoverEnd", {
+            name: prevHover,
+            object: W.next[prevHover],
+            hit: null,
+            event: null,
+            hand,
+            inputSource,
+            frame,
+            input: this,
+          });
+        }
+
+        if (nextHover) {
+          this.dispatch("onHover", {
+            name: nextHover,
+            object: hit.object,
+            hit,
+            event: null,
+            hand,
+            inputSource,
+            frame,
+            input: this,
+          });
+        }
+
+        this._hovered[hand] = nextHover;
+      } else if (nextHover && hit) {
+        this.dispatch("onHover", {
+          name: nextHover,
+          object: hit.object,
+          hit,
+          event: null,
+          hand,
+          inputSource,
+          frame,
+          input: this,
+        });
+      }
+
+      if (hit?.point) {
+        activeIds.add(hitId);
+        const handedness = inputSource.handedness || "none";
+        W.setState({
+          n: hitId,
+          type: "sphere",
+          x: hit.point[0],
+          y: hit.point[1],
+          z: hit.point[2],
+          size: this.hitSphereSize,
+          s: 1,
+          b: this.colors[handedness] || this.colors.none,
+          mix: 1,
+        });
+        this._inputObjectIds.add(hitId);
+      }
+    });
+
+    for (const id of this._inputObjectIds) {
+      if (!activeIds.has(id)) {
+        delete W.next[id];
+        delete W.current[id];
+        this._inputObjectIds.delete(id);
+      }
+    }
+  }
+
+  detach() {
+    if (this._session) {
+      this._session.removeEventListener("selectstart", this._onSelectStart);
+      this._session.removeEventListener("select", this._onSelect);
+      this._session.removeEventListener("selectend", this._onSelectEnd);
+    }
+
+    this._session = null;
+    this._getRefSpace = null;
+    this._selected = [null, null];
+    this._hovered = [null, null];
+
+    if (typeof W !== "undefined") {
+      for (const id of this._inputObjectIds) {
+        delete W.next[id];
+        delete W.current[id];
+      }
+    }
+    this._inputObjectIds.clear();
+  }
+
+  __makeContext(ev, hit, hand, confirmed = false) {
+    return {
+      name: hit.name,
+      object: hit.object,
+      hit,
+      event: ev,
+      hand,
+      inputSource: ev.inputSource,
+      frame: ev.frame,
+      input: this,
+      confirmed,
+    };
+  }
+
+  __hitTest(ev) {
+    const refSpace = this._getRefSpace?.();
+    if (!refSpace) return null;
+
+    const pose = ev.frame.getPose(ev.inputSource.targetRaySpace, refSpace);
+    if (!pose) return null;
+
+    return hitTestSelectableObjects(pose.transform.matrix);
+  }
+
+  __onSelectStart(ev) {
+    const hit = this.__hitTest(ev);
+    const hand = handIndex(ev.inputSource);
+
+    if (hit) {
+      this._selected[hand] = { hit, confirmed: false };
+      this.dispatch(
+        "onSelectStart",
+        this.__makeContext(ev, hit, hand, false),
+      );
+    }
+  }
+
+  __onSelect(ev) {
+    const hand = handIndex(ev.inputSource);
+    const slot = this._selected[hand];
+
+    if (slot?.hit) {
+      slot.confirmed = true;
+      this.dispatch(
+        "onSelect",
+        this.__makeContext(ev, slot.hit, hand, true),
+      );
+    }
+  }
+
+  __onSelectEnd(ev) {
+    const hand = handIndex(ev.inputSource);
+    const slot = this._selected[hand];
+
+    if (slot?.hit) {
+      this.dispatch(
+        "onSelectEnd",
+        this.__makeContext(ev, slot.hit, hand, slot.confirmed),
+      );
+    }
+
+    this._selected[hand] = null;
+  }
+}
