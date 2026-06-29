@@ -50,31 +50,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     </main>
     <script type="module">
         import { WebXRButton, WebXRInputSelection } from './src/util/webxr-button.js';
-
+        import { perlinTexture } from './src/textures.js';
         const canvas = document.getElementById('c');
         W.reset(canvas, { xrCompatible: true });
 
-        function makeDemoTexture(size = 64) {
-            const c = document.createElement('canvas');
-            c.id = 'demo';
-            c.width = c.height = size;
-            const ctx = c.getContext('2d');
-            ctx.imageSmoothingEnabled = false;
-            const cells = 4;
-            const cell = size / cells;
-            for (let y = 0; y < cells; y++) {
-                for (let x = 0; x < cells; x++) {
-                    ctx.fillStyle = (x + y) % 2 ? '#4a90d9' : '#e8c547';
-                    ctx.fillRect(x * cell, y * cell, cell, cell);
-                }
-            }
-            ctx.strokeStyle = '#222';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(1, 1, size - 2, size - 2);
-            return c;
-        }
-
-        const tex = makeDemoTexture();
+        const tex = perlinTexture();
 
         const rotateObject = (ry) => {
             return ({ name }) => W.move({ n: name, ry: ry, a: 1000 });
