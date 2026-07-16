@@ -30,6 +30,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
     <link rel='stylesheet' href='src/css/common.css'>
     <script src='src/util/w.js'></script>
+    <script src='src/util/w-extensions.js'></script>
+    <script src='src/util/w-xr.js'></script>
     <title>Immersive VR Session</title>
 </head>
 
@@ -45,7 +47,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         </details>
     </header>
     <main style='text-align: center;'>
-        <p>Click 'Enter XR' to see content</p>
+        <p>Click the canvas to lock the mouse and look around. Click 'Enter XR' for VR.</p>
         <canvas id=c width=1024 height=768></canvas>
     </main>
     <script type="module">
@@ -54,6 +56,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         import { extrude2DTo3DModel } from './src/util/helpers.js';
         const canvas = document.getElementById('c');
         W.reset(canvas, { xrCompatible: true });
+        W.enableMouseControls();
 
         const tex = perlinTexture();
 
@@ -67,18 +70,22 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         W.plane({
             g: 'G', x: 0, y: 0, rx: -90, w: 10, h: 10, ts: 2, t: tex, selectable: false,
         });
-        // W.billboard({ g: 'G', x: 1, y: 2, w: 1, h: 2, t: tex, selectable: false });
-        // W.cube({
-        //     n: 'cube', g: 'G', x: -1.5, y: 0.5, w: 2, h: 1, d: 3, t: tex, selectable: true,
+        W.billboard({ g: 'G', x: 1, y: 2, w: 1, h: 2, t: tex, selectable: false });
+        W.cube({
+            n: 'cube', g: 'G', x: -1.5, y: 0.5, w: 2, h: 1, d: 3, t: tex, selectable: true,
+            onSelectStart: rotateObject(90),
+            onSelectEnd: rotateObject(0),
+
+        });
+        W.pyramid({ g: 'G', x: 0, y: 0.5, ts: 3, t: tex, selectable: true });
+
+        // const polygon = extrude2DTo3DModel([[0, 0], [1, 0], [1, 1], [2, 1], [2, 0], [3, 0], [3, 2], [0, 2]], 1);
+        // W.add('testPolygon', polygon);
+        // W.testPolygon({
+        //     n: 'testPolygon', size: 1, x: 0, y: 0, t: tex, selectable: true,
         //     onSelectStart: rotateObject(90),
         //     onSelectEnd: rotateObject(0),
-
         // });
-        // W.pyramid({ g: 'G', x: 0, y: 0.5, ts: 3, t: tex, selectable: true });
-
-        const polygon = extrude2DTo3DModel([[0, 0], [1, 0], [1, 1], [2, 1], [2, 0], [3, 0], [3, 2], [0, 2]], 1);
-        W.add('testPolygon', polygon);
-        W.testPolygon({ n: 'testPolygon', size: 1, x: 0, y: 0, t: tex, selectable: true });
         
         const sphereCount = 64;
         const sphereGroup = W.group({ n: 'sphereGroup', z: -3 });
