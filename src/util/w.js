@@ -249,6 +249,7 @@ W = {
 
     // Save new state
     W.next[state.n] = state;
+    return state;
   },
 
   // Draw the scene (desktop loop)

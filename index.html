@@ -51,6 +51,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <script type="module">
         import { WebXRButton, WebXRInputSelection } from './src/util/webxr-button.js';
         import { perlinTexture } from './src/textures.js';
+        import { extrude2DTo3DModel } from './src/util/helpers.js';
         const canvas = document.getElementById('c');
         W.reset(canvas, { xrCompatible: true });
 
@@ -60,23 +61,45 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             return ({ name }) => W.move({ n: name, ry: ry, a: 1000 });
         };
 
-        W.camera({ z: 5 });
+        W.camera({ y: 1.5, z: 5 });
         W.light({ z: -1 });
         W.group({ n: 'G', ry: 0, z: -2 });
         W.plane({
-            g: 'G', x: -1, y: 1, w: 1, h: 1, ts: 2, t: tex, selectable: true,
-            onSelectStart: rotateObject(90),
-            onSelectEnd: rotateObject(0),
+            g: 'G', x: 0, y: 0, rx: -90, w: 10, h: 10, ts: 2, t: tex, selectable: false,
         });
-        W.billboard({ g: 'G', x: 1, y: 1, w: 1, h: 2, t: tex, selectable: false });
-        W.cube({
-            n: 'cube', g: 'G', x: -1.5, y: -1, w: 2, h: 1, d: 3, t: tex, selectable: true,
-            onSelectStart: rotateObject(90),
-            onSelectEnd: rotateObject(0),
+        // W.billboard({ g: 'G', x: 1, y: 2, w: 1, h: 2, t: tex, selectable: false });
+        // W.cube({
+        //     n: 'cube', g: 'G', x: -1.5, y: 0.5, w: 2, h: 1, d: 3, t: tex, selectable: true,
+        //     onSelectStart: rotateObject(90),
+        //     onSelectEnd: rotateObject(0),
 
-        });
-        W.pyramid({ g: 'G', x: 0, y: -1, ts: 3, t: tex, selectable: true });
-        W.sphere({ g: 'G', x: 1.5, y: -1, s: 1, t: tex, selectable: true });
+        // });
+        // W.pyramid({ g: 'G', x: 0, y: 0.5, ts: 3, t: tex, selectable: true });
+
+        const polygon = extrude2DTo3DModel([[0, 0], [1, 0], [1, 1], [2, 1], [2, 0], [3, 0], [3, 2], [0, 2]], 1);
+        W.add('testPolygon', polygon);
+        W.testPolygon({ n: 'testPolygon', size: 1, x: 0, y: 0, t: tex, selectable: true });
+        
+        const sphereCount = 64;
+        const sphereGroup = W.group({ n: 'sphereGroup', z: -3 });
+        const spheres = [];
+        for (let i = 0; i < sphereCount; i++) {
+            let x = Math.cos(i * Math.PI * 2 / sphereCount) * 8.5;
+            let y = Math.sin(i) * 1.5 + 1.5;
+            let z = Math.sin(i * Math.PI * 2 / sphereCount) * 8.5;
+            const sphere = W.sphere({ g: 'sphereGroup', x: x, y: y, z: z, s: 0.5, t: tex, selectable: true });
+            spheres.push(sphere);
+        }
+
+        // on each frame, rotate the sphere group by 1 degree
+        let rotation = 0;
+        setInterval(() => {
+            rotation = (rotation + 1) % 360;
+            W.move({ n: 'sphereGroup', ry: rotation });
+            for (const [index, sphere] of spheres.entries()) {
+                W.move({ n: sphere.n, ry: -1 * rotation, y: Math.sin(index * Math.PI * 2 / sphereCount - rotation / 180 * Math.PI * 2) * 1.5 + 1.5 });
+            }
+        }, 16);
 
         const xrInput = new WebXRInputSelection();
 
@@ -98,8 +121,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             }
         }
 
+        async function requestPlayAreaReferenceSpace(session) {
+            for (const type of ['local-floor', 'local']) {
+                try {
+                    return await session.requestReferenceSpace(type);
+                } catch (_) { }
+            }
+            throw new Error('No supported reference space');
+        }
+
         function onRequestSession() {
-            return navigator.xr.requestSession('immersive-vr').then(onSessionStarted);
+            return navigator.xr.requestSession('immersive-vr', {
+                optionalFeatures: ['local-floor'],
+            }).then(onSessionStarted);
         }
 
         async function onSessionStarted(session) {
@@ -113,7 +147,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
             W.startXR();
 
-            xrRefSpace = await session.requestReferenceSpace('local');
+            xrRefSpace = await requestPlayAreaReferenceSpace(session);
+            // Some XR runtimes return a ref space that isn't a full EventTarget.
+            if (typeof xrRefSpace.addEventListener === 'function') {
+                xrRefSpace.addEventListener('reset', (event) => {
+                    console.debug('XR reference space reset', event.transform);
+                });
+            }
             xrInput.attach(session, () => xrRefSpace);
             session.requestAnimationFrame(onXRFrame);
         }
