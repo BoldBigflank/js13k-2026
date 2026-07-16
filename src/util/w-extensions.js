@@ -1,6 +1,6 @@
 // Non-XR local extensions for W
 // ==============================
-// Loaded after w.js. Adds texture tiling (ts/rep), unlit shading,
+// Loaded after w.js. Adds texture tiling (ts/rep), tileCube, unlit shading,
 // reset options, NEAREST sampling, setState return values, and
 // desktop pointer-lock mouse look / center-screen picking.
 
@@ -8,6 +8,28 @@
   const originalReset = W.reset;
   const originalSetState = W.setState;
   const originalRender = W.render;
+
+  // Cube with flat face normals for per-face texture tiling (w×h / d×h / w×d)
+  if (W.models.cube) {
+    W.add("tileCube", {
+      vertices: W.models.cube.vertices,
+      uv: W.models.cube.uv,
+      normals: [
+        0, 0, 1,   0, 0, 1,   0, 0, 1, // front
+        0, 0, 1,   0, 0, 1,   0, 0, 1,
+        1, 0, 0,   1, 0, 0,   1, 0, 0, // right
+        1, 0, 0,   1, 0, 0,   1, 0, 0,
+        0, 1, 0,   0, 1, 0,   0, 1, 0, // up
+        0, 1, 0,   0, 1, 0,   0, 1, 0,
+       -1, 0, 0,  -1, 0, 0,  -1, 0, 0, // left
+       -1, 0, 0,  -1, 0, 0,  -1, 0, 0,
+        0, 0,-1,   0, 0,-1,   0, 0,-1, // back
+        0, 0,-1,   0, 0,-1,   0, 0,-1,
+        0,-1, 0,   0,-1, 0,   0,-1, 0, // down
+        0,-1, 0,   0,-1, 0,   0,-1, 0,
+      ],
+    });
+  }
 
   const vertexShader = `#version 300 es
       precision highp float;                        // Set default float precision
@@ -216,8 +238,8 @@
     const ts = W.lerp(object.n, "ts") ?? 1;
     const repeat =
       W.plugin.builtinShapes &&
-      ["plane", "billboard", "cube"].includes(object.type)
-        ? object.type === "cube"
+      ["plane", "billboard", "cube", "tileCube"].includes(object.type)
+        ? object.type === "cube" || object.type === "tileCube"
           ? 2
           : 1
         : 0;
@@ -390,9 +412,9 @@
 
       W.gl.uniform4f(
         W.gl.getUniformLocation(W.program, "rep"),
-        object.w,
-        object.h,
-        object.d,
+        W.lerp(object.n, "w"),
+        W.lerp(object.n, "h"),
+        W.lerp(object.n, "d"),
         repeat,
       );
       W.gl.uniform1f(W.gl.getUniformLocation(W.program, "ts"), ts);
