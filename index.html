@@ -52,61 +52,38 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     </main>
     <script type="module">
         import { WebXRButton, WebXRInputSelection } from './src/util/webxr-button.js';
-        import { perlinTexture } from './src/textures.js';
+        import { perlinTexture, starTexture } from './src/textures.js';
         import { extrude2DTo3DModel } from './src/util/helpers.js';
         const canvas = document.getElementById('c');
         W.reset(canvas, { xrCompatible: true });
         W.enableMouseControls();
 
         const tex = perlinTexture();
+        const starTex = starTexture(2048);
 
         const rotateObject = (ry) => {
             return ({ name }) => W.move({ n: name, ry: ry, a: 1000 });
         };
 
-        W.camera({ y: 1.5, z: 5 });
+        // Camera group
+        W.camera({ n: 'camera', y: 1.5, z: 5 });
         W.light({ z: -1 });
         W.group({ n: 'G', ry: 0, z: -2 });
         W.plane({
-            g: 'G', x: 0, y: 0, rx: -90, w: 10, h: 10, ts: 2, t: tex, selectable: false,
+            n: 'floor',
+            g: 'G', x: 0, y: 0, rx: -90, w: 200, h: 200, ts: 2, t: tex, b: '00f', mix: 0.5, selectable: false,
         });
-        W.billboard({ g: 'G', x: 1, y: 2, w: 1, h: 2, t: tex, selectable: false });
+        W.billboard({ n: 'sign', g: 'G', x: 1, y: 2, w: 1, h: 2, t: tex, selectable: false });
         W.tileCube({
-            n: 'cube', g: 'G', x: -1.5, y: 0.5, w: 2, h: 1, d: 3, t: tex, selectable: true,
+            n: 'cube', g: 'G', x: -1.5, y: 0.5, w: 2, h: -1, d: -3, t: starTex, selectable: true,
             onSelectStart: rotateObject(90),
             onSelectEnd: rotateObject(0),
-
         });
         W.pyramid({ g: 'G', x: 0, y: 0.5, ts: 3, t: tex, selectable: true });
 
-        // const polygon = extrude2DTo3DModel([[0, 0], [1, 0], [1, 1], [2, 1], [2, 0], [3, 0], [3, 2], [0, 2]], 1);
-        // W.add('testPolygon', polygon);
-        // W.testPolygon({
-        //     n: 'testPolygon', size: 1, x: 0, y: 0, t: tex, selectable: true,
-        //     onSelectStart: rotateObject(90),
-        //     onSelectEnd: rotateObject(0),
-        // });
-        
-        const sphereCount = 64;
-        const sphereGroup = W.group({ n: 'sphereGroup', z: -3 });
-        const spheres = [];
-        for (let i = 0; i < sphereCount; i++) {
-            let x = Math.cos(i * Math.PI * 2 / sphereCount) * 8.5;
-            let y = Math.sin(i) * 1.5 + 1.5;
-            let z = Math.sin(i * Math.PI * 2 / sphereCount) * 8.5;
-            const sphere = W.sphere({ g: 'sphereGroup', x: x, y: y, z: z, s: 0.5, t: tex, selectable: true });
-            spheres.push(sphere);
-        }
-
-        // on each frame, rotate the sphere group by 1 degree
-        let rotation = 0;
-        setInterval(() => {
-            rotation = (rotation + 1) % 360;
-            W.move({ n: 'sphereGroup', ry: rotation });
-            for (const [index, sphere] of spheres.entries()) {
-                W.move({ n: sphere.n, ry: -1 * rotation, y: Math.sin(index * Math.PI * 2 / sphereCount - rotation / 180 * Math.PI * 2) * 1.5 + 1.5 });
-            }
-        }, 16);
+        // Star skybox
+        // Attached to the camera
+        const starSkybox = W.sphere({ t: starTex, x: 0, y: 2, z: 0, size: -8, unlit: true, bg: true });
 
         const xrInput = new WebXRInputSelection();
 

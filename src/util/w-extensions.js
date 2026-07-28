@@ -31,6 +31,23 @@
     });
   }
 
+  // Fix sphere UV mapping: upstream w.js warps u with sin() and scales it by
+  // an arbitrary 3.5, which distorts textures. Rebuild the model with a
+  // standard equirectangular wrap (u = longitude fraction, v = colatitude
+  // fraction) instead, keeping the same vertices/indices and the same
+  // row-major (j outer, i inner) vertex order the sphere generator uses.
+  if (W.models.sphere) {
+    const sphere = W.models.sphere;
+    const precision = Math.round(Math.sqrt(sphere.vertices.length / 3) - 1);
+    const uv = [];
+    for (let j = 0; j <= precision; j++) {
+      for (let i = 0; i <= precision; i++) {
+        uv.push(i / precision, j / precision);
+      }
+    }
+    W.add("sphere", { ...sphere, uv });
+  }
+
   const vertexShader = `#version 300 es
       precision highp float;                        // Set default float precision
       in vec4 pos, col, uv, normal;                 // Vertex attributes: position, color, texture coordinates, normal (if any)

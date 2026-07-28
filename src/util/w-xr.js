@@ -182,11 +182,19 @@
     }
 
     const transparent = [];
+    const background = [];
     for (const i in W.next) {
       W.next[i].m = W.animation(i);
 
       if (!W.next[i].t && W.col(W.next[i].b)[3] == 1) {
         W.render(W.next[i], dt);
+      } else if (W.next[i].bg) {
+        // Background objects (e.g. a skybox enclosing the camera) have an
+        // origin close to the camera despite being visually far away, which
+        // breaks distance-based sorting. Treat them as background instead:
+        // always drawn first, without writing depth, so real geometry drawn
+        // afterward can never be hidden behind them.
+        background.push(W.next[i]);
       } else {
         transparent.push(W.next[i]);
       }
@@ -195,11 +203,13 @@
     transparent.sort((a, b) => W.dist(b) - W.dist(a));
 
     W.gl.enable(3042 /* BLEND */);
-    for (const i of transparent) {
-      if (W.plugin.builtinShapes && ["plane", "billboard"].includes(i.type))
-        W.gl.depthMask(0);
+    for (const i of background) {
+      W.gl.depthMask(0);
       W.render(i, dt);
-      if (W.plugin.builtinShapes) W.gl.depthMask(1);
+      W.gl.depthMask(1);
+    }
+    for (const i of transparent) {
+      W.render(i, dt);
     }
     W.gl.disable(3042 /* BLEND */);
 
