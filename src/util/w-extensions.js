@@ -15,38 +15,22 @@
       vertices: W.models.cube.vertices,
       uv: W.models.cube.uv,
       normals: [
-        0, 0, 1,   0, 0, 1,   0, 0, 1, // front
-        0, 0, 1,   0, 0, 1,   0, 0, 1,
-        1, 0, 0,   1, 0, 0,   1, 0, 0, // right
-        1, 0, 0,   1, 0, 0,   1, 0, 0,
-        0, 1, 0,   0, 1, 0,   0, 1, 0, // up
-        0, 1, 0,   0, 1, 0,   0, 1, 0,
-       -1, 0, 0,  -1, 0, 0,  -1, 0, 0, // left
-       -1, 0, 0,  -1, 0, 0,  -1, 0, 0,
-        0, 0,-1,   0, 0,-1,   0, 0,-1, // back
-        0, 0,-1,   0, 0,-1,   0, 0,-1,
-        0,-1, 0,   0,-1, 0,   0,-1, 0, // down
-        0,-1, 0,   0,-1, 0,   0,-1, 0,
+        0, 0, 1, 0, 0, 1, 0, 0, 1, // front
+        0, 0, 1, 0, 0, 1, 0, 0, 1,
+        1, 0, 0, 1, 0, 0, 1, 0, 0, // right
+        1, 0, 0, 1, 0, 0, 1, 0, 0,
+        0, 1, 0, 0, 1, 0, 0, 1, 0, // up
+        0, 1, 0, 0, 1, 0, 0, 1, 0,
+        -1, 0, 0, -1, 0, 0, -1, 0, 0, // left
+        -1, 0, 0, -1, 0, 0, -1, 0, 0,
+        0, 0, -1, 0, 0, -1, 0, 0, -1, // back
+        0, 0, -1, 0, 0, -1, 0, 0, -1,
+        0, -1, 0, 0, -1, 0, 0, -1, 0, // down
+        0, -1, 0, 0, -1, 0, 0, -1, 0,
       ],
     });
   }
 
-  // Fix sphere UV mapping: upstream w.js warps u with sin() and scales it by
-  // an arbitrary 3.5, which distorts textures. Rebuild the model with a
-  // standard equirectangular wrap (u = longitude fraction, v = colatitude
-  // fraction) instead, keeping the same vertices/indices and the same
-  // row-major (j outer, i inner) vertex order the sphere generator uses.
-  if (W.models.sphere) {
-    const sphere = W.models.sphere;
-    const precision = Math.round(Math.sqrt(sphere.vertices.length / 3) - 1);
-    const uv = [];
-    for (let j = 0; j <= precision; j++) {
-      for (let i = 0; i <= precision; i++) {
-        uv.push(i / precision, j / precision);
-      }
-    }
-    W.add("sphere", { ...sphere, uv });
-  }
 
   const vertexShader = `#version 300 es
       precision highp float;                        // Set default float precision
@@ -200,8 +184,8 @@
     if (state.fov) {
       W.projection = new DOMMatrix([
         1 /
-          Math.tan((state.fov * Math.PI) / 180) /
-          (W.canvas.width / W.canvas.height),
+        Math.tan((state.fov * Math.PI) / 180) /
+        (W.canvas.width / W.canvas.height),
         0,
         0,
         0,
@@ -255,7 +239,7 @@
     const ts = W.lerp(object.n, "ts") ?? 1;
     const repeat =
       W.plugin.builtinShapes &&
-      ["plane", "billboard", "cube", "tileCube"].includes(object.type)
+        ["plane", "billboard", "cube", "tileCube"].includes(object.type)
         ? object.type === "cube" || object.type === "tileCube"
           ? 2
           : 1
