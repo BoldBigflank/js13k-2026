@@ -69,21 +69,37 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         W.camera({ n: 'camera', y: 1.5, z: 5 });
         W.light({ z: -1 });
         W.group({ n: 'G', ry: 0, z: -2 });
+
+        // Floor
         W.plane({
             n: 'floor',
             g: 'G', x: 0, y: 0, rx: -90, w: 200, h: 200, ts: 2, t: tex, b: '00f', mix: 0.5, selectable: false,
         });
+
+        // Billboard
         W.billboard({ n: 'sign', g: 'G', x: 1, y: 2, w: 1, h: 2, t: tex, selectable: false });
+        // Tiled Cube
         W.tileCube({
             n: 'cube', g: 'G', x: -1.5, y: 0.5, w: 2, h: -1, d: -3, t: starTex, selectable: true,
             onSelectStart: rotateObject(90),
             onSelectEnd: rotateObject(0),
         });
-        W.pyramid({ g: 'G', x: 0, y: 0.5, ts: 3, t: tex, selectable: true });
+
+        // Pyramid
+        // W.pyramid({ g: 'G', x: 0, y: 0.5, ts: 3, t: tex, selectable: true });
+
+        // Cylinder
+        W.cylinder({ n: 'cylinder', g: 'G', x: 1, y: 1.5, z: 3, rx: 30, b: '00f', mix: 0.5, w: 1, h: 0.1, d: 1, t: tex });
+        let cylinderRotation = 0;
+        setInterval(() => {
+            cylinderRotation += 1;
+            W.move({ n: 'cylinder', ry: cylinderRotation });
+        }, 16);
 
         // Star skybox
         // Attached to the camera
         const starSkybox = W.sphere({ t: starTex, x: 0, y: 2, z: 0, size: -500, unlit: true });
+
 
         const xrInput = new WebXRInputSelection();
 
