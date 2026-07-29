@@ -66,8 +66,11 @@ export const starTexture = (canvasSize = 1024) => {
         // is uniformly distributed so points don't bunch up at the poles.
         const theta = Math.random() * Math.PI * 2;
         const phi = Math.acos(2 * Math.random() - 1);
-        const opacity = Math.random();
-        const color = '#ffffff'
+
+        const opacity = Math.pow(octavePerlin2(theta, phi, 2, 4, 0.75), 2);
+        const color = '#ffffff';
+        // const opacity = Math.random();
+        // const color = colorLerp('#ff00ff', '#00ff00', octavePerlin2(theta, phi, 2, 4, 0.5));
 
         // Convert to the same equirectangular uv used by W's sphere model
         // (u = longitude / 2*PI, v = colatitude / PI, see src/util/w-extensions.js)
