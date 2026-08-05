@@ -112,3 +112,9 @@ export function extrude2DTo3DModel(vector2ds, depth) {
     indices,
   };
 }
+
+export const rotateAxisAngle = (axis, angle) => {
+  const [x, y, z] = axis;
+  const matrix = new DOMMatrix().rotateAxisAngle(x, y, z, angle);
+  return matrix
+}

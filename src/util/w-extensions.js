@@ -37,40 +37,53 @@
   const uv = [];
   const precision = 20;
   const cylRadius = 0.5;
-  const base = vertices.length / 3;
-  const bottomCenterIdx = base + precision * 2;  // ring0, ring1, then centers
+  const bottomCenterIdx = (precision + 1) * 4;  // ring0, ring1, cap0, cap1, then centers
   const topCenterIdx = bottomCenterIdx + 1;
 
-  for (let i = 0; i < precision; i++) {
+  // The rings have two stacked vertices, so that the uv doesn't go .95->0
+  for (let i = 0; i <= precision; i++) {
     const a = i * 2 * Math.PI / precision;
-    const x = Math.cos(a) * cylRadius, z = Math.sin(a) * cylRadius;
+    const x = Math.cos(a) * cylRadius
+    const z = Math.sin(a) * cylRadius
     // Bottom ring
-    vertices.push(x, 0, z);
-    uv.push(0.5 + Math.cos(a) * 0.5, 0.5 + Math.sin(a) * 0.5);
+    vertices.push(x, -0.5, z);
+    uv.push(1 - (i / precision), 0);
     // Top ring
-    vertices.push(x, 1, z);
-    uv.push(0.5 + Math.cos(a) * 0.5, 0.5 + Math.sin(a) * 0.5);
+    vertices.push(x, 0.5, z);
+    uv.push(1 - (i / precision), 1);
+    // Bottom cap
+    vertices.push(x, -0.5, z);
+    uv.push(0.5 - x, 0.5 - z);
+    // Top cap
+    vertices.push(x, 0.5, z);
+    uv.push(0.5 + x, 0.5 - z);
+
   }
+
   // Bottom cap center
-  vertices.push(0, 0, 0)
+  vertices.push(0, -0.5, 0)
   uv.push(0.5, 0.5);
   // Top cap center
-  vertices.push(0, 1, 0);
+  vertices.push(0, 0.5, 0);
   uv.push(0.5, 0.5);
 
   for (let i = 0; i < precision; i++) {
-    const next = (i + 1) % precision;
-    const b0 = base + i * 2
-    const b1 = base + next * 2
+    const next = (i + 1);
+    const b0 = i * 4
+    const b1 = next * 4
     const t0 = b0 + 1
     const t1 = b1 + 1
+    const c0 = t0 + 1
+    const c1 = t1 + 1
+    const d0 = c0 + 1
+    const d1 = c1 + 1
     // Sides: each quad as two triangles
     indices.push(b0, t0, b1);
     indices.push(b1, t0, t1);
+
     // Bottom cap
-    indices.push(b0, b1, bottomCenterIdx);
-    // Top cap
-    indices.push(t1, t0, topCenterIdx);
+    indices.push(c0, c1, bottomCenterIdx);
+    indices.push(d1, d0, topCenterIdx);
   }
 
   W.add("cylinder", { vertices, uv, indices });

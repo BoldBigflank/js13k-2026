@@ -1,6 +1,7 @@
 {
   "name": "w-xr",
   "version": "1.0.0",
+  "type": "module",
   "packageManager": "yarn@4.9.4",
   "scripts": {
     "dev": "l13 dev",
@@ -10,6 +11,7 @@
     "tsc": "tsc"
   },
   "devDependencies": {
+    "canvas": "^3.2.3",
     "husky": "^9.1.7",
     "l13": "^0.0.22",
     "prettier": "3.6.2",

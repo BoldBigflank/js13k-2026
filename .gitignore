@@ -23,3 +23,4 @@ test-zip
 test-zip-clean
 w-xr-*.zip
 w-xr-**
+scripts/textures

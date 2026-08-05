@@ -46,6 +46,30 @@ export const perlinTexture = (startColor = '#000000', endColor = '#ffffff', size
     return c;
 }
 
+export const testTexture = (canvasSize = 1024) => {
+    // grid of high contrasting squares
+    const c = uniqueCanvas(canvasSize);
+    const ctx = c.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    const squareSize = canvasSize / 4
+    let index = 0;
+    for (let y = 0; y < canvasSize; y += squareSize) {
+        for (let x = 0; x < canvasSize; x += squareSize) {
+            // Random opaque color
+            const color = `#${Math.floor(Math.random() * 16777215).toString(16)}`;
+            ctx.fillStyle = color;
+            ctx.fillRect(x, y, squareSize, squareSize);
+            // Write the index of the square to the canvas
+            ctx.font = `${squareSize}px Arial`;
+            ctx.textBaseline = 'top';
+            ctx.fillStyle = '#000000';
+            ctx.fillText(index, x, y);
+            index++;
+        }
+    }
+    return c;
+}
+
 export const starTexture = (canvasSize = 1024) => {
     const c = uniqueCanvas(canvasSize);
     const ctx = c.getContext('2d');
