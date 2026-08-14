@@ -61,14 +61,36 @@ class Board {
     toString() {
       return this.board.map(row => row.join(" ")).join("\n");
     }
-    get(coord: Coord) {
-      if (coord.x < 0 || coord.x >= this.board[0].length || coord.y < 0 || coord.y >= this.board.length) {
+    get(coord: Coord, xOffset: number = 0, yOffset: number = 0) {
+      if (coord.x + xOffset < 0 || coord.x + xOffset >= this.board[0].length || coord.y + yOffset < 0 || coord.y + yOffset >= this.board.length) {
         return WALL;
       }
-      return this.board[coord.y][coord.x];
+      return this.board[coord.y + yOffset][coord.x + xOffset];
+    }
+    count(piece: Space) {
+      let count = 0
+
+      for (let y = 0; y < this.board.length; y++) {
+        for (let x = 0; x < this.board[y].length; x++) {
+          if (this.board[y][x] === piece) {
+            count++;
+          }
+        }
+      }
+      return count;
     }
     distance(from: Coord, to: Coord) {
       return Math.abs(from.x - to.x) + Math.abs(from.y - to.y);
+    }
+    canMoveDiagonally(pos: Coord) {
+      // if the row and column number are both odd or both even, diagonals are valid.
+      if (pos.x % 2 == pos.y % 2) {
+        return true;
+      }
+      return false;
+    }
+    isJump(from: Coord, to: Coord) {
+      return (from.x + to.x) % 2 === 0 && (from.y + to.y) % 2 === 0
     }
     find(piece: Space) {
       for (let y = 0; y < this.board.length; y++) {
@@ -79,21 +101,19 @@ class Board {
         }
       }
     }
-    move(from: Coord, to: Coord, ): boolean {
+    move(from: Coord, to: Coord) {
       const piece = this.get(from);
       this.board[to.y][to.x] = piece;
       this.board[from.y][from.x] = EMPTY;
 
       // Jumps are always 2 spaces vertically and/or horizontally
-      if ((from.x + to.x) % 2 === 0 && (from.y + to.y) % 2 === 0) {
+      if (this.isJump(from, to)) {
         const mid = {
           x: (from.x + to.x) / 2,
           y: (from.y + to.y) / 2,
         };
         this.board[mid.y][mid.x] = EMPTY;
-        return true;
       }
-      return false;
     }
 }
 
@@ -101,6 +121,7 @@ class Game {
     board: Board;
     players: Player[];
     turn: Side;
+    jumpOnly: boolean;
     moves: Move[];
 
     constructor() {
@@ -108,6 +129,7 @@ class Game {
         this.players = [];
         this.turn = Side.FOX;
         this.moves = [];
+        this.jumpOnly = false;
     }
 
     addPlayer(name: string, side: Side) {
@@ -118,7 +140,31 @@ class Game {
         this.board = new Board();
         this.turn = Side.FOX;
     }
+    hasValidMoves() {
+      // Find the fox position
+      const fox = this.board.find(FOX);
+      if (!fox) {
+        return false;
+      }
+      // Find the valid moves
+      // Orthogonally adjacent cells are valid moves
+      const orthogonals = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+      for (const [x, y] of orthogonals) {
+        if (this.board.get(fox, x, y) == EMPTY) {
+          return true;
+        }
+      }
 
+      if (!this.board.canMoveDiagonally(fox)) return false
+      
+      const diagonals = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
+      for (const [x, y] of diagonals) {
+        if (this.board.get(fox, x, y) == EMPTY) {
+          return true;
+        }
+      }
+      return false;
+    }
     hasValidJumps() {
       // Find the fox position
       const fox = this.board.find(FOX);
@@ -126,11 +172,35 @@ class Game {
         return false;
       }
       // Find the valid jumps
-      [{x: -2, y: 0}, {x: 2, y: 0}, {x: 0, y: -2}, {x: 0, y: 2}].forEach(({x, y}) => {
-        const to = { x: fox.x + x, y: fox.y + y };
-        
+      // Orthogonally adjacent cells are valid jumps
+      let validJumps = false;
+      [[-1, 0], [1, 0], [0, -1], [0, 1]].forEach(([x, y]) => {
+        if (this.board.get(fox, x, y) == GOOSE && this.board.get(fox, x * 2, y * 2) == EMPTY) {
+          validJumps = true;
+          return true
+        }
       });
-      return false;
+
+      if (validJumps) return validJumps;
+      if (!this.board.canMoveDiagonally(fox)) return validJumps;
+      [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([x, y]) => {
+        if (this.board.get(fox, x, y) == GOOSE && this.board.get(fox, x * 2, y * 2) == EMPTY) {
+          validJumps = true;
+          return true
+        }
+      });
+      return validJumps;
+    }
+
+    pass() {
+      if (!this.jumpOnly) {
+        console.log(`Invalid move: ${this.turn} cannot pass`);
+        return false;
+      }
+      console.log(`${this.turn} passed`);
+      this.turn = Side.GOOSE
+      this.jumpOnly = false;
+      return true;
     }
 
     move(from: Coord, to: Coord) {
@@ -152,12 +222,36 @@ class Game {
         }
       }
 
-      const didJump = this.board.move(from, to);
+      if (this.jumpOnly && !this.board.isJump(from, to)) {
+        console.log(`Invalid move: ${from} is not a jump`);
+        return false;
+      }
+
+      this.board.move(from, to);
       this.moves.push({ from, to });
+
+      // Check win conditions
+      // 🪿 wins if the fox has no valid moves or jumps
+      // 🦊 wins if there are fewer than 4 🪿 on the board
+      if (this.board.count(GOOSE) < 4) {
+        console.log(`🦊 wins!`);
+        return true;
+      }
+
+      if (!this.hasValidMoves() && !this.hasValidJumps()) {
+        console.log(`🪿 wins!`);
+        return true;
+      }
       console.log(this.board.toString());
-      this.turn = this.turn === Side.FOX ? Side.GOOSE : Side.FOX;
-      // TODO: Allow the fox to keep his turn if he has a jump available
-      return false;
+      if (this.board.isJump(from, to) && this.hasValidJumps()) {
+        this.jumpOnly = true;
+        console.log(`Valid jump found, allowing the fox to keep his turn`);
+        return true;
+      } else {
+        console.log(`No valid jump found, switching turns`);
+        this.jumpOnly = false;
+        this.turn = this.turn === Side.FOX ? Side.GOOSE : Side.FOX;
+      }
     }
 }
 

@@ -54,6 +54,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         game.move({ x: 3, y: 3 }, { x: 2, y: 4 }); // 🦊 moves away
         game.move({ x: 2, y: 2 }, { x: 2, y: 3 }); // 🪿 moves down
         game.move({ x: 2, y: 4 }, { x: 2, y: 2 }); // 🦊 jumps 🪿
+        game.move({ x: 4, y: 2 }, { x: 4, y: 3 }); // 🪿 moves down
+        game.move({ x: 2, y: 2 }, { x: 4, y: 2 }); // 🦊 jumps 🪿 and has another jump
+        console.log(game)
+        game.pass() // 🦊 doesn't take the jump
         console.log(game)
 
 
