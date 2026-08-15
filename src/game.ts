@@ -1,3 +1,5 @@
+import { sample } from './util/helpers';
+
 enum Side {
     GOOSE = '🪿',
     FOX = '🦊'
@@ -22,6 +24,14 @@ const WALL = "🟫";
 type Piece = typeof EMPTY | typeof GOOSE | typeof FOX | typeof WALL;
 type Board = Piece[][];
 
+type GameState = {
+    board: Board;
+    turn: Side;
+    jumpOnly: boolean;
+    winner: Side | null;
+    moves: Move[];
+}
+
 const BOARD_START: Board = [
     [WALL, WALL, GOOSE, GOOSE, GOOSE, WALL, WALL],
     [WALL, WALL, GOOSE, GOOSE, GOOSE, WALL, WALL],
@@ -32,15 +42,15 @@ const BOARD_START: Board = [
     [WALL, WALL, EMPTY, EMPTY, EMPTY, WALL, WALL],
 ]
 
-const BOARD_TEST: Board = [
-    [WALL, WALL, EMPTY, EMPTY, EMPTY, WALL, WALL],
-    [WALL, WALL, EMPTY, GOOSE, EMPTY, WALL, WALL],
-    [EMPTY, EMPTY, GOOSE, GOOSE, GOOSE, EMPTY, EMPTY],
-    [EMPTY, EMPTY, EMPTY, FOX, EMPTY, EMPTY, EMPTY],
-    [EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
-    [WALL, WALL, EMPTY, EMPTY, EMPTY, WALL, WALL],
-    [WALL, WALL, EMPTY, EMPTY, EMPTY, WALL, WALL],
-]
+// const BOARD_TEST: Board = [
+//     [WALL, WALL, EMPTY, EMPTY, EMPTY, WALL, WALL],
+//     [WALL, WALL, EMPTY, GOOSE, EMPTY, WALL, WALL],
+//     [EMPTY, EMPTY, GOOSE, GOOSE, GOOSE, EMPTY, EMPTY],
+//     [EMPTY, EMPTY, EMPTY, FOX, EMPTY, EMPTY, EMPTY],
+//     [EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
+//     [WALL, WALL, EMPTY, EMPTY, EMPTY, WALL, WALL],
+//     [WALL, WALL, EMPTY, EMPTY, EMPTY, WALL, WALL],
+// ]
 
 const ORTHOGONAL_MOVES = [[-1, 0], [1, 0], [0, -1], [0, 1]];
 const DIAGONAL_MOVES = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
@@ -49,17 +59,41 @@ const printBoard = (board: Board) => {
     console.log(board.map(row => row.join(" ")).join("\n"));
 }
 
+const moveToString = (move: Move) => {
+    if (move === 'pass') {
+        return 'PASS';
+    }
+    return `(${move.from.x},${move.from.y}) -> (${move.to.x},${move.to.y})`;
+}
+
 const copyBoard = (board: Board): Board => {
     return board.map(row => row.map(piece => piece));
 }
 
+const copyGameState = (gameState: GameState): GameState => {
+    return {
+        board: copyBoard(gameState.board),
+        turn: gameState.turn,
+        jumpOnly: gameState.jumpOnly,
+        winner: gameState.winner,
+        moves: gameState.moves.map(move => move),
+    };
+}
 const canMoveDiagonally = (pos: Coord) => {
     return pos.x % 2 == pos.y % 2;
 }
-const isDiagonalMove = (from: Coord, to: Coord) => {
+const isDiagonalMove = (move: Move) => {
+    if (move === 'pass') {
+        return false;
+    }
+    const { from, to } = move;
     return !(from.x - to.x === 0 || from.y - to.y === 0);
 }
-const isJump = (from: Coord, to: Coord) => {
+const isJump = (move: Move) => {
+    if (move === 'pass') {
+        return false;
+    }
+    const { from, to } = move;
     return (from.x + to.x) % 2 === 0 && (from.y + to.y) % 2 === 0
 }
 
@@ -76,15 +110,22 @@ class Player {
 }
 
 const getPieceAtCoord = (board: Board, coord: Coord, xOffset: number = 0, yOffset: number = 0): Piece => {
-    if (
-        coord.x + xOffset < 0 ||
-        coord.x + xOffset >= board[0].length ||
-        coord.y + yOffset < 0 ||
-        coord.y + yOffset >= board.length
-    ) {
-        return WALL;
+    // console.log(`getPieceAtCoord(${coord.x},${coord.y}) + (${xOffset},${yOffset})`);
+    try {
+        if (
+            coord.x + xOffset < 0 ||
+            coord.x + xOffset >= board[0].length ||
+            coord.y + yOffset < 0 ||
+            coord.y + yOffset >= board.length
+        ) {
+            return WALL;
+        }
+        return board[coord.y + yOffset][coord.x + xOffset];
+    } catch (error) {
+        console.error(`Error getting piece at coord: ${coord} + (${xOffset},${yOffset})`);
+        console.error(error);
+        throw error;
     }
-    return board[coord.y + yOffset][coord.x + xOffset];
 }
 
 const getPiecesByType = (board: Board, piece: Piece): Coord[] => {
@@ -103,32 +144,56 @@ const getPieceCount = (board: Board, piece: Piece): number => {
     return getPiecesByType(board, piece).length;
 }
 
-const makeMove = (oldBoard: Board, move: Move): Board => {
-    // Make a copy of the board
-    const board = copyBoard(oldBoard);
+const makeMove = (gameState: GameState, move: Move): GameState => {
+    const newGameState = copyGameState(gameState);
     if (move === 'pass') {
-        return oldBoard;
+        newGameState.turn = newGameState.turn === Side.FOX ? Side.GOOSE : Side.FOX;
+        newGameState.jumpOnly = false;
+        return newGameState;
     }
     const { from, to } = move;
-    const piece = getPieceAtCoord(board, from);
-    board[to.y][to.x] = piece;
-    board[from.y][from.x] = EMPTY;
+    const piece = getPieceAtCoord(newGameState.board, from);
+    newGameState.board[to.y][to.x] = piece;
+    newGameState.board[from.y][from.x] = EMPTY;
 
     // Jumps are always 2 spaces vertically and/or horizontally
-    if (isJump(from, to)) {
+    if (isJump(move)) {
         const mid = {
             x: (from.x + to.x) / 2,
             y: (from.y + to.y) / 2,
         };
-        board[mid.y][mid.x] = EMPTY;
+        newGameState.board[mid.y][mid.x] = EMPTY;
     }
-    return board;
+
+    // Check win conditions
+    if (isWinningState(newGameState)) {
+        newGameState.winner = newGameState.turn;
+        return newGameState;
+    }
+
+    // Check if the fox can jump again
+    if (isJump(move)) {
+        newGameState.jumpOnly = true;
+        if (!hasValidMoves(newGameState)) {
+            newGameState.jumpOnly = false;
+            newGameState.turn = newGameState.turn === Side.FOX ? Side.GOOSE : Side.FOX;
+            return newGameState;
+        }
+    } else {
+        newGameState.turn = newGameState.turn === Side.FOX ? Side.GOOSE : Side.FOX;
+        newGameState.jumpOnly = false;
+    }
+    return newGameState;
 }
 
-const getValidMoves = (board: Board, turn: Side, jumpOnly: boolean = false): Move[] => {
+const getValidMoves = (gameState: GameState): Move[] => {
+    const { board, turn, jumpOnly } = gameState;
     const moves: Move[] = [];
     const isFox = turn === Side.FOX;
     const pieces = getPiecesByType(board, turn === Side.FOX ? FOX : GOOSE);
+    if (isFox && jumpOnly) {
+        moves.push("pass")
+    }
     for (const piece of pieces) {
         for (const [x, y] of ORTHOGONAL_MOVES) {
             const to = { x: piece.x + x, y: piece.y + y };
@@ -166,25 +231,37 @@ const getValidMoves = (board: Board, turn: Side, jumpOnly: boolean = false): Mov
     return moves;
 }
 
-const hasValidMoves = (board: Board, turn: Side, jumpOnly: boolean = false): boolean => {
-    return getValidMoves(board, turn, jumpOnly).length > 0;
+const hasValidMoves = (gameState: GameState): boolean => {
+    return getValidMoves(gameState).length > 0;
+}
+
+const isWinningState = (gameState: GameState): boolean => {
+    const { board, turn } = gameState;
+    // 🦊 wins if there are fewer than 4 🪿 on the board
+    if (turn === Side.FOX && getPieceCount(board, GOOSE) < 4) {
+        return true;
+    }
+
+    // 🪿 wins if the fox has no valid moves or jumps
+    if (turn === Side.GOOSE && !hasValidMoves(gameState)) {
+        return true;
+    }
+    return false;
 }
 
 class Game {
-    board: Board;
+    gameState: GameState;
     players: Player[];
-    turn: Side;
-    jumpOnly: boolean;
-    winner: Side | null;
-    moves: Move[];
 
     constructor() {
-        this.board = copyBoard(BOARD_START);
+        this.gameState = {
+            board: copyBoard(BOARD_START),
+            turn: Side.FOX,
+            jumpOnly: false,
+            winner: null,
+            moves: [],
+        };
         this.players = [];
-        this.turn = Side.FOX;
-        this.moves = [];
-        this.jumpOnly = false;
-        this.winner = null;
         this.reset()
     }
 
@@ -193,57 +270,62 @@ class Game {
     }
 
     reset() {
-        this.board = copyBoard(BOARD_START);
-        this.players = [];
-        this.turn = Side.FOX;
-        this.moves = [];
-        this.jumpOnly = false;
-        this.winner = null;
+        this.gameState = {
+            board: copyBoard(BOARD_START),
+            turn: Side.FOX,
+            jumpOnly: false,
+            winner: null,
+            moves: [],
+        };
     }
 
     pass() {
         // The game must not be over
-        if (this.winner !== null) {
+        if (this.gameState.winner !== null) {
             console.log(`Invalid move: game is over`);
             return false;
         }
         // It must be the 🦊's turn
-        if (this.turn !== Side.FOX) {
-            console.log(`Invalid move: ${this.turn} cannot pass`);
+        if (this.gameState.turn !== Side.FOX) {
+            console.log(`Invalid move: ${this.gameState.turn} cannot pass`);
             return false;
         }
         // The 🦊 must be in jump only mode
-        if (!this.jumpOnly) {
-            console.log(`Invalid move: ${this.turn} cannot pass`);
+        if (!this.gameState.jumpOnly) {
+            console.log(`Invalid move: ${this.gameState.turn} cannot pass`);
             return false;
         }
-        console.log(`${this.turn} passed`);
-        this.moves.push('pass');
-        this.turn = Side.GOOSE
-        this.jumpOnly = false;
+        console.log(`${this.gameState.turn} passed`);
+        this.gameState.moves.push('pass');
+        this.gameState.turn = Side.GOOSE;
+        this.gameState.jumpOnly = false;
         return true;
     }
 
-    move(from: Coord, to: Coord) {
+    move(move: Move) {
+        if (move === 'pass') {
+            return this.pass();
+        }
+        const { from, to } = move;
         // Validate the move
         // The game must not be over
-        if (this.winner !== null) {
+        if (this.gameState.winner !== null) {
             console.log(`Invalid move: game is over`);
             return false;
         }
         // It must be the player's turn
-        if (this.turn !== getPieceAtCoord(this.board, from)) {
-            console.log(`Invalid move: ${getPieceAtCoord(this.board, from)} is not ${this.turn}`);
+        if (this.gameState.turn !== getPieceAtCoord(this.gameState.board, from)) {
+            console.log(`Invalid move: ${getPieceAtCoord(this.gameState.board, from)} is not ${this.gameState.turn}`);
             return false;
         }
         // The to must be EMPTY
-        if (getPieceAtCoord(this.board, to) !== EMPTY) {
-            console.log(`Invalid move: ${getPieceAtCoord(this.board, to)} is not empty`);
+        if (getPieceAtCoord(this.gameState.board, to) !== EMPTY) {
+            console.log(`Invalid move: ${getPieceAtCoord(this.gameState.board, to)} is not empty`);
             return false;
         }
 
         // Diagonal moves are only allowed on certain spaces
-        if (isDiagonalMove(from, to)) {
+        if (isDiagonalMove(move)) {
             if (!canMoveDiagonally(from)) {
                 console.log(`Invalid move: ${from} is not allowed diagonals`);
                 return false;
@@ -251,42 +333,62 @@ class Game {
         }
 
         // Foxes must jump if they are in jump only mode
-        if (this.jumpOnly && !isJump(from, to)) {
+        if (this.gameState.jumpOnly && !isJump(move)) {
             console.log(`Invalid move: ${from} is not a jump`);
             return false;
         }
 
 
         // Validation complete, make the move
-        this.board = makeMove(this.board, { from, to });
-        this.moves.push({ from, to });
-        printBoard(this.board);
-
-
-        // Check win conditions
-        // 🦊 wins if there are fewer than 4 🪿 on the board
-        if (this.turn === Side.FOX && getPieceCount(this.board, GOOSE) < 4) {
-            console.log(`🦊 wins!`);
-            this.winner = Side.FOX;
+        this.gameState = makeMove(this.gameState, { from, to });
+        this.gameState.moves.push({ from, to });
+        console.log(`Move ${this.gameState.moves.length} - ${this.gameState.turn} - ${moveToString({ from, to })}`);
+        printBoard(this.gameState.board);
+        if (this.gameState.winner) {
+            console.log(`${this.gameState.winner} wins!`);
         }
-
-        // 🪿 wins if the fox has no valid moves or jumps
-        if (this.turn === Side.GOOSE && !hasValidMoves(this.board, Side.FOX)) {
-            console.log(`🪿 wins!`);
-            this.winner = Side.GOOSE;
-        }
-
-        // Check if the fox can jump again
-        if (isJump(from, to) && hasValidMoves(this.board, Side.FOX, true)) {
-            this.jumpOnly = true;
-            console.log(`Valid jump found, allowing the fox to keep his turn`);
-        } else {
-            this.jumpOnly = false;
-            this.turn = this.turn === Side.FOX ? Side.GOOSE : Side.FOX;
-        }
-
         return true;
     }
 }
 
-export { Game, printBoard };
+const minimax = (
+    gameState: GameState,
+    depth: number,
+    isMaximizing: boolean
+): number => {
+    if (isWinningState(gameState)) {
+        return isMaximizing ? -1 : 1;
+    }
+    // If there's a draw, return 0
+    // Reached max depth, return 0
+    if (depth === 0) {
+        return 0;
+    }
+
+    let bestScore = isMaximizing ? -Infinity : Infinity;
+    const scoreFunc = isMaximizing ? Math.max : Math.min;
+    for (const move of getValidMoves(gameState)) {
+        const newGameState = makeMove(gameState, move);
+        const score = minimax(newGameState, depth - 1, !isMaximizing);
+        bestScore = scoreFunc(bestScore, score);
+    }
+    return bestScore;
+}
+
+const getBestMove = (gameState: GameState, depth: number): Move | null => {
+    let bestScore = -Infinity;
+    let bestMoves: Move[] = [];
+    for (const move of getValidMoves(gameState)) {
+        const newGameState = makeMove(gameState, move);
+        const score = minimax(newGameState, depth - 1, false);
+        if (score > bestScore) {
+            bestScore = score;
+            bestMoves = [move];
+        } else if (score === bestScore) {
+            bestMoves.push(move);
+        }
+    }
+    return sample(bestMoves);
+}
+
+export { Game, printBoard, minimax, getBestMove };

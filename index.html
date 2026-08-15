@@ -46,22 +46,25 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         import { WebXRButton, WebXRInputSelection } from './src/util/webxr-button.js';
         import { perlinTexture, starTexture, testTexture } from './src/textures.js';
         import { extrude2DTo3DModel, rotateAxisAngle } from './src/util/helpers.js';
-        import { Game } from './src/game.ts';
-        
+        import { Game, getBestMove, printBoard } from './src/game.ts';
+
         const game = new Game();
-        
+
         // Test moves
-        game.move({ x: 3, y: 3 }, { x: 2, y: 4 }); // 🦊 moves away
-        game.move({ x: 2, y: 2 }, { x: 2, y: 3 }); // 🪿 moves down
-        game.move({ x: 2, y: 4 }, { x: 2, y: 2 }); // 🦊 jumps 🪿
-        game.move({ x: 4, y: 2 }, { x: 4, y: 3 }); // 🪿 moves down
-        game.move({ x: 2, y: 2 }, { x: 4, y: 2 }); // 🦊 jumps 🪿 and has another jump
-        console.log(game)
-        game.pass() // 🦊 doesn't take the jump
-        console.log(game)
+        // game.move({ x: 3, y: 3 }, { x: 2, y: 4 }); // 🦊 moves away
+        // game.move({ x: 2, y: 2 }, { x: 2, y: 3 }); // 🪿 moves down
+        // game.move({ x: 2, y: 4 }, { x: 2, y: 2 }); // 🦊 jumps 🪿
+        // game.move({ x: 4, y: 2 }, { x: 4, y: 3 }); // 🪿 moves down
+        // game.move({ x: 2, y: 2 }, { x: 4, y: 2 }); // 🦊 jumps 🪿 and has another jump
+        // game.pass() // 🦊 doesn't take the jump
+
+        // while (!game.gameState.winner) {
+        //     const bestMove = getBestMove(game.gameState, 5);
+        //     game.move(bestMove);
+        //     // console.log(printBoard(game.gameState.board))
+        // }
 
 
-        
 
         const canvas = document.getElementById('c');
         W.reset(canvas, { xrCompatible: true });

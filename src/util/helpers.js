@@ -30,6 +30,14 @@ export const fisherYatesShuffle = (array) => {
   return array;
 };
 
+export const sample = (array, count = 1) => {
+  if (count === 1) {
+    return array[Math.floor(Math.random() * array.length)];
+  } else {
+    return fisherYatesShuffle(array).slice(0, count);
+  }
+};
+
 /**
  * Extrudes a 2D polygon (vector2d array) into a 3D model along the z-axis.
  * Returns a { vertices, uv, indices } object suitable for W.add().
