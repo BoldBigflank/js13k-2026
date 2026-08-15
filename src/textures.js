@@ -1,5 +1,6 @@
 import { octavePerlin2 } from './util/perlin.js';
 import { colorLerp } from './util/helpers.js';
+import { COLORS } from './util/constants.js';
 
 // W caches uploaded GL textures by canvas.id (see W.textures / W.setState), so every
 // generated texture canvas needs a unique id or later textures will silently reuse
@@ -46,15 +47,15 @@ export const perlinTexture = (startColor = '#000000', endColor = '#ffffff', size
     return c;
 }
 
-export const testTexture = (canvasSize = 1024) => {
+export const testTexture = (size = 64) => {
     // grid of high contrasting squares
-    const c = uniqueCanvas(canvasSize);
+    const c = uniqueCanvas(size);
     const ctx = c.getContext('2d');
     ctx.imageSmoothingEnabled = false;
-    const squareSize = canvasSize / 4
+    const squareSize = size / 4
     let index = 0;
-    for (let y = 0; y < canvasSize; y += squareSize) {
-        for (let x = 0; x < canvasSize; x += squareSize) {
+    for (let y = 0; y < size; y += squareSize) {
+        for (let x = 0; x < size; x += squareSize) {
             // Random opaque color
             const color = `#${Math.floor(Math.random() * 16777215).toString(16)}`;
             ctx.fillStyle = color;
@@ -119,3 +120,22 @@ export const starTexture = (canvasSize = 1024) => {
     }
     return c;
 }
+
+export const colorTexture = (canvasSize = 1024, color = COLORS.RED) => {
+    const c = uniqueCanvas(canvasSize);
+    const ctx = c.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, canvasSize, canvasSize);
+    return c;
+}
+
+const colorTextures = Object.values(COLORS).map(color => colorTexture(1024, color));
+// return an array of each texture function
+export const textures = [
+    ...colorTextures,
+    makeTexture,
+    perlinTexture,
+    testTexture,
+    starTexture,
+]
