@@ -57,13 +57,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // game.move({ x: 4, y: 2 }, { x: 4, y: 3 }); // 🪿 moves down
         // game.move({ x: 2, y: 2 }, { x: 4, y: 2 }); // 🦊 jumps 🪿 and has another jump
         // game.pass() // 🦊 doesn't take the jump
-
-        // while (!game.gameState.winner) {
-        //     const bestMove = getBestMove(game.gameState, 5);
-        //     game.move(bestMove);
-        //     // console.log(printBoard(game.gameState.board))
-        // }
-
+        (async () => {
+            // Run the loop in a microtask to avoid blocking the main thread
+            while (!game.gameState.winner) {
+                // Optionally, await a small delay to yield to the event loop
+                await new Promise(resolve => setTimeout(resolve, 0));
+                const bestMove = getBestMove(game.gameState, 5);
+                game.move(bestMove);
+                // console.log(printBoard(game.gameState.board))
+            }
+        })();
 
 
         const canvas = document.getElementById('c');

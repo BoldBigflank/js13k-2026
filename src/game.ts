@@ -249,6 +249,72 @@ const isWinningState = (gameState: GameState): boolean => {
     return false;
 }
 
+// Positional weights: mobility > jumps so geese squeeze walks first.
+// Terminal scores dominate all positional terms.
+const WEIGHT_WIN = 10000;
+const WEIGHT_FOX_JUMPS = 100;
+const WEIGHT_FOX_POSITION = 30;
+const WEIGHT_GEESE_NEAR_FOX = 10;
+const WEIGHT_FOX_MOBILITY = 10;
+const WEIGHT_MATERIAL = 60;
+
+const getFoxMoveBreakdown = (gameState: GameState): { walks: number; jumps: number } => {
+    const foxState: GameState = {
+        board: gameState.board,
+        turn: Side.FOX,
+        jumpOnly: false,
+        winner: gameState.winner,
+        moves: gameState.moves,
+    };
+    let walks = 0;
+    let jumps = 0;
+    for (const move of getValidMoves(foxState)) {
+        if (move === 'pass') {
+            continue;
+        }
+        if (isJump(move)) {
+            jumps++;
+        } else {
+            walks++;
+        }
+    }
+    return { walks, jumps };
+}
+
+/** Higher is better for `perspective`. */
+const evaluate = (gameState: GameState, perspective: Side): number => {
+    const winner = gameState.winner ?? (isWinningState(gameState) ? gameState.turn : null);
+    if (winner !== null) {
+        return winner === perspective ? WEIGHT_WIN : -WEIGHT_WIN;
+    }
+    let score = 0;
+    const fox = getPiecesByType(gameState.board, FOX)[0];
+    const geese = getPiecesByType(gameState.board, GOOSE);
+
+    if (perspective === Side.FOX) {
+        // Points for each missing goose
+        score += (10 / geese.length) * WEIGHT_MATERIAL;
+        // More points for having 2 or more jumps available to the fox
+        const foxJumps = getValidMoves(gameState).filter(move => isJump(move)).length;
+        if (foxJumps >= 2) { score += WEIGHT_FOX_JUMPS; }
+        // Points if the fox is in the middle 3x3
+        if (fox.x >= 3 && fox.x <= 3 && fox.y >= 3 && fox.y <= 3) { score += WEIGHT_FOX_POSITION; }
+    } else { // Goose perspective
+        // More points if there are no jumps available to the fox
+        const foxJumps = getValidMoves(gameState).filter(move => !isJump(move)).length;
+        if (!foxJumps) { score += WEIGHT_FOX_JUMPS; }
+        // Points if the fox is outide of the middle 3x3
+        if (fox.x < 3 || fox.x > 3 || fox.y < 3 || fox.y > 3) { score += WEIGHT_FOX_POSITION; }
+        // Some points if the geese are within 3 spaces of the fox
+        const geeseWithin3 = geese.filter(geese => {
+            return Math.abs(geese.x - fox.x) + Math.abs(geese.y - fox.y) <= 3;
+        });
+        if (geeseWithin3.length > 0) { score += WEIGHT_GEESE_NEAR_FOX; }
+
+    }
+    return perspective === Side.FOX ? score : -score;
+}
+
 class Game {
     gameState: GameState;
     players: Player[];
@@ -354,33 +420,35 @@ class Game {
 const minimax = (
     gameState: GameState,
     depth: number,
-    isMaximizing: boolean
+    maximizingSide: Side
 ): number => {
-    if (isWinningState(gameState)) {
-        return isMaximizing ? -1 : 1;
-    }
-    // If there's a draw, return 0
-    // Reached max depth, return 0
-    if (depth === 0) {
-        return 0;
+    if (gameState.winner !== null || isWinningState(gameState) || depth === 0) {
+        return evaluate(gameState, maximizingSide);
     }
 
+    const moves = getValidMoves(gameState);
+    if (moves.length === 0) {
+        return evaluate(gameState, maximizingSide);
+    }
+
+    // Maximize when it's the root player's turn (handles fox jump chains).
+    const isMaximizing = gameState.turn === maximizingSide;
     let bestScore = isMaximizing ? -Infinity : Infinity;
-    const scoreFunc = isMaximizing ? Math.max : Math.min;
-    for (const move of getValidMoves(gameState)) {
+    for (const move of moves) {
         const newGameState = makeMove(gameState, move);
-        const score = minimax(newGameState, depth - 1, !isMaximizing);
-        bestScore = scoreFunc(bestScore, score);
+        const score = minimax(newGameState, depth - 1, maximizingSide);
+        bestScore = isMaximizing ? Math.max(bestScore, score) : Math.min(bestScore, score);
     }
     return bestScore;
 }
 
 const getBestMove = (gameState: GameState, depth: number): Move | null => {
+    const maximizingSide = gameState.turn;
     let bestScore = -Infinity;
     let bestMoves: Move[] = [];
     for (const move of getValidMoves(gameState)) {
         const newGameState = makeMove(gameState, move);
-        const score = minimax(newGameState, depth - 1, false);
+        const score = minimax(newGameState, depth - 1, maximizingSide);
         if (score > bestScore) {
             bestScore = score;
             bestMoves = [move];
