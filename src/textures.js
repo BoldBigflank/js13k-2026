@@ -121,6 +121,21 @@ export const starTexture = (canvasSize = 1024) => {
     return c;
 }
 
+export const rainbowTexture = (canvasSize = 1024) => {
+    const c = uniqueCanvas(canvasSize);
+    const ctx = c.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvasSize);
+    let i = 0;
+    for (const color of Object.values(COLORS)) {
+        gradient.addColorStop(i / Object.values(COLORS).length, color);
+        i++;
+    }
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvasSize, canvasSize);
+    return c;
+}
+
 export const colorTexture = (canvasSize = 1024, color = COLORS.RED) => {
     const c = uniqueCanvas(canvasSize);
     const ctx = c.getContext('2d');
@@ -134,6 +149,7 @@ const colorTextures = Object.values(COLORS).map(color => colorTexture(1024, colo
 // return an array of each texture function
 export const textures = [
     ...colorTextures,
+    rainbowTexture,
     makeTexture,
     perlinTexture,
     testTexture,

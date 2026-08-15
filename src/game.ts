@@ -186,11 +186,14 @@ const makeMove = (gameState: GameState, move: Move): GameState => {
     return newGameState;
 }
 
-const getValidMoves = (gameState: GameState): Move[] => {
+const getValidMoves = (gameState: GameState, perspective?: Side): Move[] => {
     const { board, turn, jumpOnly } = gameState;
+    if (perspective === undefined) {
+        perspective = turn
+    }
     const moves: Move[] = [];
-    const isFox = turn === Side.FOX;
-    const pieces = getPiecesByType(board, turn === Side.FOX ? FOX : GOOSE);
+    const isFox = perspective === Side.FOX;
+    const pieces = getPiecesByType(board, perspective);
     if (isFox && jumpOnly) {
         moves.push("pass")
     }
@@ -252,34 +255,12 @@ const isWinningState = (gameState: GameState): boolean => {
 // Positional weights: mobility > jumps so geese squeeze walks first.
 // Terminal scores dominate all positional terms.
 const WEIGHT_WIN = 10000;
-const WEIGHT_FOX_JUMPS = 100;
-const WEIGHT_FOX_POSITION = 30;
-const WEIGHT_GEESE_NEAR_FOX = 10;
-const WEIGHT_FOX_MOBILITY = 10;
+const WEIGHT_FOX_JUMPS = 1000;
+const WEIGHT_GOOSE_COUNT = 100;
+const WEIGHT_FOX_POSITION = 100;
+const WEIGHT_GOOSE_MOBILITY = 10;
+const WEIGHT_GOOSE_NEAR_FOX = 1;
 const WEIGHT_MATERIAL = 60;
-
-const getFoxMoveBreakdown = (gameState: GameState): { walks: number; jumps: number } => {
-    const foxState: GameState = {
-        board: gameState.board,
-        turn: Side.FOX,
-        jumpOnly: false,
-        winner: gameState.winner,
-        moves: gameState.moves,
-    };
-    let walks = 0;
-    let jumps = 0;
-    for (const move of getValidMoves(foxState)) {
-        if (move === 'pass') {
-            continue;
-        }
-        if (isJump(move)) {
-            jumps++;
-        } else {
-            walks++;
-        }
-    }
-    return { walks, jumps };
-}
 
 /** Higher is better for `perspective`. */
 const evaluate = (gameState: GameState, perspective: Side): number => {
@@ -300,16 +281,21 @@ const evaluate = (gameState: GameState, perspective: Side): number => {
         // Points if the fox is in the middle 3x3
         if (fox.x >= 3 && fox.x <= 3 && fox.y >= 3 && fox.y <= 3) { score += WEIGHT_FOX_POSITION; }
     } else { // Goose perspective
+        // Points for each goose
+        score += geese.length * WEIGHT_GOOSE_COUNT;
         // More points if there are no jumps available to the fox
-        const foxJumps = getValidMoves(gameState).filter(move => !isJump(move)).length;
+        const foxJumps = getValidMoves(gameState, Side.FOX).filter(move => isJump(move)).length;
         if (!foxJumps) { score += WEIGHT_FOX_JUMPS; }
-        // Points if the fox is outide of the middle 3x3
-        if (fox.x < 3 || fox.x > 3 || fox.y < 3 || fox.y > 3) { score += WEIGHT_FOX_POSITION; }
+        // Points if the geese are in diagonal slots
+        const geeseInDiagonalSlots = geese.filter(geese => {
+            return canMoveDiagonally(geese);
+        });
+        score += geeseInDiagonalSlots.length * WEIGHT_GOOSE_MOBILITY;
         // Some points if the geese are within 3 spaces of the fox
         const geeseWithin3 = geese.filter(geese => {
             return Math.abs(geese.x - fox.x) + Math.abs(geese.y - fox.y) <= 3;
         });
-        if (geeseWithin3.length > 0) { score += WEIGHT_GEESE_NEAR_FOX; }
+        score += geeseWithin3.length * WEIGHT_GOOSE_NEAR_FOX;
 
     }
     return perspective === Side.FOX ? score : -score;
@@ -406,9 +392,9 @@ class Game {
 
 
         // Validation complete, make the move
+        console.log(`Move ${this.gameState.moves.length+1} - ${this.gameState.turn} - ${moveToString({ from, to })}`);
         this.gameState = makeMove(this.gameState, { from, to });
         this.gameState.moves.push({ from, to });
-        console.log(`Move ${this.gameState.moves.length} - ${this.gameState.turn} - ${moveToString({ from, to })}`);
         printBoard(this.gameState.board);
         if (this.gameState.winner) {
             console.log(`${this.gameState.winner} wins!`);
@@ -456,6 +442,7 @@ const getBestMove = (gameState: GameState, depth: number): Move | null => {
             bestMoves.push(move);
         }
     }
+    console.log(`Best move with a score of ${bestScore}`)
     return sample(bestMoves);
 }
 

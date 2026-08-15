@@ -59,12 +59,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // game.pass() // 🦊 doesn't take the jump
         (async () => {
             // Run the loop in a microtask to avoid blocking the main thread
+            let moveCount = 0;
             while (!game.gameState.winner) {
+                moveCount++;
                 // Optionally, await a small delay to yield to the event loop
                 await new Promise(resolve => setTimeout(resolve, 0));
                 const bestMove = getBestMove(game.gameState, 5);
                 game.move(bestMove);
                 // console.log(printBoard(game.gameState.board))
+                if (moveCount >= 10) {
+                    break;
+                }
             }
         })();
 
