@@ -1,13 +1,14 @@
 // Non-XR local extensions for W
 // ==============================
 // Loaded after w.js. Adds texture tiling (ts/rep), tileCube, unlit shading,
-// reset options, NEAREST sampling, setState return values, and
-// desktop pointer-lock mouse look / center-screen picking.
+// reset options, NEAREST sampling, setState return values, group size,
+// and desktop pointer-lock mouse look / center-screen picking.
 
 (() => {
   const originalReset = W.reset;
   const originalSetState = W.setState;
   const originalRender = W.render;
+  const originalGroup = W.group;
 
   // Cube with flat face normals for per-face texture tiling (w×h / d×h / w×d)
   if (W.models.cube) {
@@ -290,6 +291,13 @@
 
     W.next[state.n] = state;
     return state;
+  };
+
+  // Group accepts size / w / h / d like meshes; scale cascades to children
+  // via W.animation's parent transform.
+  W.group = (t) => {
+    if (t.size) t.w = t.h = t.d = t.size;
+    return W.setState(t, "group");
   };
 
   W.render = (object, dt, buffer, model = W.models[object.type]) => {
@@ -759,5 +767,6 @@
     originalReset,
     originalSetState,
     originalRender,
+    originalGroup,
   };
 })();
