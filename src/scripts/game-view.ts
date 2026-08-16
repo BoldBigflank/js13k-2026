@@ -1,7 +1,8 @@
 import { Events } from "./libraries/Events";
-import { Game } from "../game";
+import type { Game } from "../game";
 import { loadModel } from "./model-loader";
-import { EMPTY, GOOSE, FOX, WALL } from "../game";
+import { EMPTY, GOOSE, FOX, WALL } from "../Types";
+import type { Move } from "../Types";
 
 export class GameView {
     private game: Game;
@@ -11,24 +12,29 @@ export class GameView {
     constructor(game: Game) {
         this.game = game;
         this.parentName = `game_${Math.random().toString(36).substring(2, 15)}`;
-        W.group({ n: this.parentName, x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0 });
+        W.group({ n: this.parentName, x: 0, y: 0, z: -3, rx: 0, ry: 0, rz: 0 });
         this.setupEvents();
     }
 
     render() {
         console.log('render');
         const board = this.game.gameState.board;
-        for (let y = 0; y < board.length; y++) {
-            const row = board[y]
+        for (let z = 0; z < board.length; z++) {
+            const row = board[z]
             for (let x = 0; x < row.length; x++) {
                 const cell = row[x];
-                const key = `${x},${y}`;
-                let modelId = this.pieceToModel[key];
-                if (!modelId) {
-                    modelId = loadModel('unicorn');
-                    this.pieceToModel[key] = modelId;
+                const key = `${x},${z}`;
+                let modelName = this.pieceToModel[key];
+                if (!modelName) {
+                    if (cell === GOOSE) {
+                        modelName = loadModel('unicorn');
+                        this.pieceToModel[key] = modelName;
+                    }
                 }
-                W.move({n: modelId, g: this.parentName, x, y});
+                if (!modelName) {
+                    continue
+                }
+                W.move({n: modelName, g: this.parentName, size: 0.05, x, z});
             }
         }
     }

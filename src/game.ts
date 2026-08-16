@@ -1,35 +1,13 @@
 import { sample } from './util/helpers';
 import { Events } from './scripts/libraries/Events';
-
-enum Side {
-    GOOSE = '🪿',
-    FOX = '🦊'
-}
-
-type Coord = {
-    x: number;
-    y: number;
-}
-
-type Move = {
-    from: Coord;
-    to: Coord;
-} | 'pass';
-
-// Helpers
-const EMPTY = "🟩";
-const GOOSE = "🪿";
-const FOX = "🦊";
-const WALL = "🟫";
-
-type Piece = typeof EMPTY | typeof GOOSE | typeof FOX | typeof WALL;
-type Board = Piece[][];
+import type { Coord, Move, Piece, Board } from './Types';
+import { Side, EMPTY, GOOSE, FOX, WALL } from './Types';
 
 type GameState = {
     board: Board;
-    turn: Side;
+    turn: typeof Side;
     jumpOnly: boolean;
-    winner: Side | null;
+    winner: typeof Side | null;
     moves: Move[];
 }
 
