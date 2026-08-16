@@ -47,10 +47,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         import { perlinTexture, starTexture, testTexture } from './src/textures.js';
         import { extrude2DTo3DModel, rotateAxisAngle } from './src/util/helpers.js';
         import { Game, getBestMove, printBoard } from './src/game.ts';
-        import { loadModel } from './src/scripts/ModelLoader.ts';
+        import { loadModel } from './src/scripts/model-loader.ts';
+        import { GameView } from './src/scripts/game-view.ts';
 
         const game = new Game();
-
         // Test moves
         // game.move({ x: 3, y: 3 }, { x: 2, y: 4 }); // 🦊 moves away
         // game.move({ x: 2, y: 2 }, { x: 2, y: 3 }); // 🪿 moves down
@@ -77,6 +77,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         const canvas = document.getElementById('c');
         W.reset(canvas, { xrCompatible: true });
+
         W.enableMouseControls();
 
         const tex = perlinTexture();
@@ -126,6 +127,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // Attached to the camera
         const starSkybox = W.sphere({ n: 'skybox', t: starTex, x: 0, y: 2, z: 0, rx: 23, size: -500, unlit: true });
 
+        const gameView = new GameView(game);
+        gameView.render();
 
         const xrInput = new WebXRInputSelection();
 

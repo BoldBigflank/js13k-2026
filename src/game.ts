@@ -1,4 +1,5 @@
 import { sample } from './util/helpers';
+import { Events } from './scripts/libraries/Events';
 
 enum Side {
     GOOSE = '🪿',
@@ -351,6 +352,7 @@ class Game {
         this.gameState.moves.push('pass');
         this.gameState.turn = Side.GOOSE;
         this.gameState.jumpOnly = false;
+        Events.emit('pass');
         return true;
     }
 
@@ -399,6 +401,7 @@ class Game {
         if (this.gameState.winner) {
             console.log(`${this.gameState.winner} wins!`);
         }
+        Events.emit('move', { from, to });
         return true;
     }
 }
