@@ -22,6 +22,8 @@ export const colorLerp = (color1, color2, t) => {
   return `#${r}${g}${b}`;
 };
 
+export const floatVal = (val) => parseFloat(`${val || 0}`);
+
 export const fisherYatesShuffle = (array) => {
   for (let i = array.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -124,5 +126,5 @@ export function extrude2DTo3DModel(vector2ds, depth) {
 export const rotateAxisAngle = (axis, angle) => {
   const [x, y, z] = axis;
   const matrix = new DOMMatrix().rotateAxisAngle(x, y, z, angle);
-  return matrix
-}
+  return matrix;
+};
