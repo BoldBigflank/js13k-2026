@@ -17,7 +17,6 @@ export class GameView {
     }
 
     render() {
-        console.log('render');
         const board = this.game.gameState.board;
         for (let z = 0; z < board.length; z++) {
             const row = board[z]
@@ -43,13 +42,12 @@ export class GameView {
                 if (!modelName) {
                     continue
                 }
-                W.move({n: modelName, g: this.parentName, size: 0.05, x: x * 1.5, z: z * 1.5});
+                W.move({ n: modelName, g: this.parentName, size: 0.05, x: x * 1.5, z: z * 1.5 });
             }
         }
     }
 
     onMove(move: Move) {
-        console.log('move', move);
         const key = `${move.from.x},${move.from.y}`;
         const toKey = `${move.to.x},${move.to.y}`;
         const modelId = this.pieceToModel[key]
@@ -59,10 +57,9 @@ export class GameView {
         this.render()
     }
     onPass() {
-        console.log('pass');
         this.render()
     }
-    
+
     setupEvents() {
         Events.Instance.on('move', this.onMove.bind(this));
         Events.Instance.on('pass', this.onPass.bind(this));

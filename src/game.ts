@@ -89,7 +89,6 @@ class Player {
 }
 
 const getPieceAtCoord = (board: Board, coord: Coord, xOffset: number = 0, yOffset: number = 0): Piece => {
-    // console.log(`getPieceAtCoord(${coord.x},${coord.y}) + (${xOffset},${yOffset})`);
     try {
         if (
             coord.x + xOffset < 0 ||
@@ -372,7 +371,6 @@ class Game {
 
 
         // Validation complete, make the move
-        console.log(`Move ${this.gameState.moves.length + 1} - ${this.gameState.turn} - ${moveToString({ from, to })}`);
         this.gameState = makeMove(this.gameState, { from, to });
         this.gameState.moves.push({ from, to });
         printBoard(this.gameState.board);
@@ -423,7 +421,6 @@ const getBestMove = (gameState: GameState, depth: number): Move | null => {
             bestMoves.push(move);
         }
     }
-    console.log(`Best move with a score of ${bestScore}`)
     return sample(bestMoves);
 }
 
