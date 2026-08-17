@@ -1,7 +1,9 @@
 // WebGL framework
 // ===============
 
-W = {
+// Assigned onto window so the rest of the app (and w-extensions/w-xr) can keep
+// using the bare `W` global, even though this file is now an ES module.
+window.W = {
   
   // List of 3D models that can be rendered by the framework
   // (See the end of the file for built-in models: plane, billboard, cube, pyramid...)

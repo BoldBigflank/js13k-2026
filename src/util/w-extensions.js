@@ -4,6 +4,8 @@
 // reset options, NEAREST sampling, setState return values, group size,
 // and desktop pointer-lock mouse look / center-screen picking.
 
+import './w.js';
+
 (() => {
   const originalReset = W.reset;
   const originalSetState = W.setState;

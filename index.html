@@ -29,9 +29,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <link rel='icon' type='image/png' sizes='32x32' href='favicon-32x32.png'>
     <link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
     <link rel='stylesheet' href='src/css/common.css'>
-    <script src='src/util/w.js'></script>
-    <script src='src/util/w-extensions.js'></script>
-    <script src='src/util/w-xr.js'></script>
     <title>Immersive VR Session</title>
 </head>
 
@@ -43,6 +40,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         <canvas id=c width=1024 height=768></canvas>
     </main>
     <script type="module">
+        // W must be evaluated first: it defines the global that every module below uses.
+        import './src/util/w.js';
+        import './src/util/w-extensions.js';
+        import './src/util/w-xr.js';
         import { WebXRButton, WebXRInputSelection } from './src/util/webxr-button.js';
         import { perlinTexture, starTexture, testTexture } from './src/textures.js';
         import { extrude2DTo3DModel, rotateAxisAngle } from './src/util/helpers.js';

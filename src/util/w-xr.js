@@ -4,6 +4,8 @@
 // Adds XR session lifecycle, stereo drawView, head-aware billboards,
 // and raycast selection helpers onto the global W object.
 
+import './w.js';
+
 (() => {
   const prevReset = W.reset;
   const prevDraw = W.draw;
