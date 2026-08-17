@@ -1,24 +1,4 @@
 <!doctype html>
-<!--
-Copyright 2018 The Immersive Web Community Group
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software is furnished to do so,
-subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
--->
 <html>
 
 <head>
@@ -26,25 +6,48 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
     <meta name='mobile-web-app-capable' content='yes'>
     <meta name='apple-mobile-web-app-capable' content='yes'>
+    <style>
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            background: #3230b3;
+            font: 24px sans-serif;
+            color: #fff;
+            text-align: center
+        }
+
+        #c {
+            position: absolute;
+            inset: 0;
+            touch-action: none
+        }
+
+        header {
+            position: absolute;
+            z-index: 1;
+            inset: 0 auto auto 0;
+            right: 0;
+            margin: 0 auto;
+            width: fit-content
+        }
+    </style>
+
     <link rel='icon' type='image/png' sizes='32x32' href='favicon-32x32.png'>
     <link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
-    <link rel='stylesheet' href='src/css/common.css'>
-    <title>Immersive VR Session</title>
+    <title>Unicorns and Rainbows</title>
 </head>
 
 <body>
+    <canvas id=c width=1024 height=768></canvas>
     <header>
     </header>
-    <main style='text-align: center;'>
-        <p>Click the canvas to lock the mouse and look around. Click 'Enter XR' for VR.</p>
-        <canvas id=c width=1024 height=768></canvas>
-    </main>
     <script type="module">
         // W must be evaluated first: it defines the global that every module below uses.
         import './src/util/w.js';
         import './src/util/w-extensions.js';
+        // Optional: remove this import (and W.enableXR?.() below) for desktop-only.
         import './src/util/w-xr.js';
-        import { WebXRButton, WebXRInputSelection } from './src/util/webxr-button.js';
         import { perlinTexture, starTexture, testTexture } from './src/textures.js';
         import { extrude2DTo3DModel, rotateAxisAngle } from './src/util/helpers.js';
         import { Game, getBestMove, printBoard } from './src/game.ts';
@@ -59,27 +62,24 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // game.move({ x: 4, y: 2 }, { x: 4, y: 3 }); // 🪿 moves down
         // game.move({ x: 2, y: 2 }, { x: 4, y: 2 }); // 🦊 jumps 🪿 and has another jump
         // game.pass() // 🦊 doesn't take the jump
-        // (async () => {
-        //     // Run the loop in a microtask to avoid blocking the main thread
-        //     let moveCount = 0;
-        //     while (!game.gameState.winner) {
-        //         moveCount++;
-        //         // Optionally, await a small delay to yield to the event loop
-        //         await new Promise(resolve => setTimeout(resolve, 0));
-        //         const bestMove = getBestMove(game.gameState, 5);
-        //         game.move(bestMove);
-        //         // console.log(printBoard(game.gameState.board))
-        //         if (moveCount >= 10) {
-        //             break;
-        //         }
-        //     }
-        // })();
+        (async () => {
+            // Run the loop in a microtask to avoid blocking the main thread
+            let moveCount = 0;
+            while (!game.gameState.winner && moveCount < 10) {
+                moveCount++;
+                // Optionally, await a small delay to yield to the event loop
+                await new Promise(resolve => setTimeout(resolve, 0));
+                const bestMove = getBestMove(game.gameState, 5);
+                game.move(bestMove);
+            }
+        })();
 
 
         const canvas = document.getElementById('c');
-        W.reset(canvas, { xrCompatible: true });
+        W.reset(canvas);
 
         W.enableMouseControls();
+        W.enableXR?.();
 
         const tex = perlinTexture();
         const starTex = starTexture(2048);
@@ -117,12 +117,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         W.cylinder({ n: 'cylinder', g: 'G', rx: 0, b: '00f', mix: 0.1, w: 1, h: 1, d: 1, t: testTex });
         let cylinderRotation = 0;
         setInterval(() => {
-            cylinderRotation += 0.6;
+            cylinderRotation += 0.01;
             const rotationMatrix = rotateAxisAngle([0, 18, 100], cylinderRotation);
             W.move({ n: 'cylinder', M: rotationMatrix });
             W.move({ n: 'skybox', M: rotationMatrix });
 
-            W.move({ n: unicorn, ry: cylinderRotation })
+            W.move({ n: unicorn, ry: cylinderRotation * 30 })
         }, 16);
 
         // Star skybox
@@ -131,100 +131,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         const gameView = new GameView(game);
         gameView.render();
-
-        const xrInput = new WebXRInputSelection();
-
-        let xrButton = null;
-        let xrRefSpace = null;
-        let lastXRFrameTime = 0;
-
-        function initXR() {
-            xrButton = new WebXRButton({
-                onRequestSession: onRequestSession,
-                onEndSession: onEndSession,
-            });
-            document.querySelector('header').appendChild(xrButton.domElement);
-
-            if (navigator.xr) {
-                navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
-                    xrButton.enabled = supported;
-                });
-            }
-        }
-
-        async function requestPlayAreaReferenceSpace(session) {
-            for (const type of ['local-floor', 'local']) {
-                try {
-                    return await session.requestReferenceSpace(type);
-                } catch (_) { }
-            }
-            throw new Error('No supported reference space');
-        }
-
-        function onRequestSession() {
-            return navigator.xr.requestSession('immersive-vr', {
-                optionalFeatures: ['local-floor'],
-            }).then(onSessionStarted);
-        }
-
-        async function onSessionStarted(session) {
-            xrButton.setSession(session);
-            session.addEventListener('end', onSessionEnded);
-
-            await W.gl.makeXRCompatible();
-            session.updateRenderState({
-                baseLayer: new XRWebGLLayer(session, W.gl),
-            });
-
-            W.startXR();
-
-            xrRefSpace = await requestPlayAreaReferenceSpace(session);
-            // Some XR runtimes return a ref space that isn't a full EventTarget.
-            if (typeof xrRefSpace.addEventListener === 'function') {
-                xrRefSpace.addEventListener('reset', (event) => {
-                    console.debug('XR reference space reset', event.transform);
-                });
-            }
-            xrInput.attach(session, () => xrRefSpace);
-            session.requestAnimationFrame(onXRFrame);
-        }
-
-        function onEndSession(session) {
-            session.end();
-        }
-
-        function onSessionEnded() {
-            xrInput.detach();
-            xrButton.setSession(null);
-            W.endXR();
-            xrRefSpace = null;
-            lastXRFrameTime = 0;
-        }
-
-        function onXRFrame(t, frame) {
-            const session = frame.session;
-            session.requestAnimationFrame(onXRFrame);
-
-            const dt = t - (lastXRFrameTime || t - 16);
-            lastXRFrameTime = t;
-
-            const pose = frame.getViewerPose(xrRefSpace);
-            if (!pose) return;
-
-            xrInput.update(frame);
-
-            const glLayer = session.renderState.baseLayer;
-            W.gl.bindFramebuffer(W.gl.FRAMEBUFFER, glLayer.framebuffer);
-            W.gl.clear(W.gl.COLOR_BUFFER_BIT | W.gl.DEPTH_BUFFER_BIT);
-
-            for (const view of pose.views) {
-                const viewport = glLayer.getViewport(view);
-                W.gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
-                W.drawView(view.projectionMatrix, view.transform, pose.transform, dt);
-            }
-        }
-
-        initXR();
     </script>
 </body>
 

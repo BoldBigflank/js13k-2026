@@ -1,8 +1,8 @@
 // Non-XR local extensions for W
 // ==============================
-// Loaded after w.js. Adds texture tiling (ts/rep), tileCube, unlit shading,
-// reset options, NEAREST sampling, setState return values, group size,
-// and desktop pointer-lock mouse look / center-screen picking.
+// Loaded after w.js. Adds texture tiling helpers (ts/rep wrap), tileCube,
+// reset canvas sizing, NEAREST sampling, setState return values, group size,
+// raycast helpers, and desktop pointer-lock mouse look / center-screen picking.
 
 import './w.js';
 
@@ -186,92 +186,6 @@ import './w.js';
 
   W.add("cylinder", { vertices, uv, indices });
 
-  const vertexShader = `#version 300 es
-      precision highp float;                        // Set default float precision
-      in vec4 pos, col, uv, normal;                 // Vertex attributes: position, color, texture coordinates, normal (if any)
-      uniform mat4 pv, eye, m, im;                  // Uniform transformation matrices: projection * view, eye, model, inverse model
-      uniform vec4 bb;                              // If the current shape is a billboard: bb = [w, h, 1.0, 0.0]
-      uniform vec4 rep;                           // Texture repeat: [w, h, d, mode] (1: plane/billboard, 2: cube)
-      uniform float ts;                           // Texture scale (tiles per unit at 1)
-      out vec4 v_pos, v_col, v_uv, v_normal;        // Varyings sent to the fragment shader: position, color, texture coordinates, normal (if any)
-      void main() {
-        gl_Position = pv * (                        // Set vertex position: p * v * v_pos
-          v_pos = bb.z > 0.                         // Set v_pos varying:
-          ? m[3] + eye * (pos * bb)                 // Billboards always face the camera
-          : m * pos                                 // Other objects rotate normally
-        );
-        v_col = col;                                // Set varyings
-        vec2 uv2 = uv.xy;
-        if (rep.w == 1.) uv2 *= rep.xy;            // Plane / billboard: 1 texture tile per unit
-        else if (rep.w == 2.) {                     // Cube: tile per face based on w, h, d
-          vec3 an = abs(normal.xyz);
-          if (an.x >= an.y && an.x >= an.z) uv2 *= rep.zy;
-          else if (an.y >= an.z) uv2 *= rep.xz;
-          else uv2 *= rep.xy;
-        }
-        if (ts != 1.) uv2 *= ts;
-        v_uv = vec4(uv2, uv.zw);
-        v_normal = transpose(inverse(m)) * normal;  // recompute normals to match model thansformation
-      }`;
-
-  const fragmentShader = `#version 300 es
-      precision highp float;                  // Set default float precision
-      in vec4 v_pos, v_col, v_uv, v_normal;   // Varyings received from the vertex shader: position, color, texture coordinates, normal (if any)
-      uniform vec3 light;                     // Uniform: light direction, smooth normals enabled
-      uniform vec4 o;                         // options [smooth, shading enabled, ambient, mix]
-      uniform float unlit;                    // 1: skip lighting, render at full brightness
-      uniform sampler2D sampler;              // Uniform: 2D texture
-      out vec4 c;                             // Output: final fragment color
-
-      void main() {
-        vec4 base = mix(texture(sampler, v_uv.xy), v_col, o[3]);  // base color (mix of texture and rgba)
-        if (unlit > 0.) {                                         // emissive / unlit: ignore scene lighting
-          c = base;
-        } else if(o[1] > 0.){                                       // if lighting/shading is enabled:
-          c = vec4(                                                 // output = vec4(base color RGB * (directional shading + ambient light)), base color Alpha
-            base.rgb * (max(0., dot(light, -normalize(             // Directional shading: compute dot product of light direction and normal (0 if negative)
-              o[0] > 0.                                             // if smooth shading is enabled:
-              ? vec3(v_normal.xyz)                                  // use smooth normals passed as varying
-              : cross(dFdx(v_pos.xyz), dFdy(v_pos.xyz))             // else, compute flat normal by making a cross-product with the current fragment and its x/y neighbours
-            )))
-            + o[2]),                                                // add ambient light passed as uniform
-            base.a                                                  // use base color's alpha
-          );
-        } else {
-          c = base;
-        }
-      }`;
-
-  W._compileProgram = (vertSrc, fragSrc) => {
-    let shader;
-    W.program = W.gl.createProgram();
-
-    W.gl.shaderSource(
-      (shader = W.gl.createShader(35633 /* VERTEX_SHADER */)),
-      vertSrc,
-    );
-    W.gl.compileShader(shader);
-    W.gl.attachShader(W.program, shader);
-    if (W.plugin.debug)
-      console.log("vertex shader:", W.gl.getShaderInfoLog(shader) || "OK");
-
-    W.gl.shaderSource(
-      (shader = W.gl.createShader(35632 /* FRAGMENT_SHADER */)),
-      fragSrc,
-    );
-    W.gl.compileShader(shader);
-    W.gl.attachShader(W.program, shader);
-    if (W.plugin.debug)
-      console.log("fragment shader:", W.gl.getShaderInfoLog(shader) || "OK");
-
-    W.gl.linkProgram(W.program);
-    W.gl.useProgram(W.program);
-    if (W.plugin.debug)
-      console.log("program:", W.gl.getProgramInfoLog(W.program) || "OK");
-  };
-
-  W._extensionShaders = { vertex: vertexShader, fragment: fragmentShader };
-
   // Displayed canvas box (CSS) rather than the drawing-buffer attributes,
   // so a fullscreen canvas is not stuck at width=1024 height=768.
   W.canvasAspect = () => {
@@ -326,35 +240,14 @@ import './w.js';
       options = {};
     }
 
-    W.canvas = canvas;
     const displayW = canvas.clientWidth | 0;
     const displayH = canvas.clientHeight | 0;
     if (displayW && displayH) {
       canvas.width = displayW;
       canvas.height = displayH;
     }
-    W.objs = 0;
-    W.current = {};
-    W.next = {};
-    W.textures = {};
 
-    const contextAttribs = { ...(options.context || {}) };
-    W.gl = canvas.getContext("webgl2", contextAttribs);
-
-    W.gl.blendFunc(770 /* SRC_ALPHA */, 771 /* ONE_MINUS_SRC_ALPHA */);
-    W.gl.activeTexture(33984 /* TEXTURE0 */);
-    W.gl.enable(2884 /* CULL_FACE */);
-
-    W._compileProgram(vertexShader, fragmentShader);
-
-    W.gl.clearColor(1, 1, 1, 1);
-    W.clearColor = (c) => W.gl.clearColor(...W.col(c));
-    W.gl.enable(2929 /* DEPTH_TEST */);
-
-    W.light({ y: -1 });
-    W.camera({ fov: 30 });
-
-    if (options.autoDraw !== false) setTimeout(W.draw, 16);
+    originalReset(canvas, options);
   };
 
   W.setState = (state, type, texture) => {
@@ -428,7 +321,7 @@ import './w.js';
     // texture stretches across each face instead of repeating by size.
     const repeat =
       W.plugin.builtinShapes &&
-      ["plane", "billboard", "tileCube"].includes(object.type)
+        ["plane", "billboard", "tileCube"].includes(object.type)
         ? object.type === "tileCube"
           ? 2
           : 1
@@ -635,6 +528,168 @@ import './w.js';
     }
   };
 
+  // Raycast helpers (shared by desktop mouse pick and optional XR)
+  // ------------------------------------------------------------------
+
+  // Ray from a 4x4 pose matrix (origin + -Z direction)
+  W.rayFromMatrix = (matrix) => {
+    const m = new DOMMatrix(matrix);
+    const tip = m.transformPoint(new DOMPoint(0, 0, -1, 0));
+    const direction = [tip.x, tip.y, tip.z];
+    const len = Math.hypot(...direction) || 1;
+    return {
+      origin: [m.m41, m.m42, m.m43],
+      direction: direction.map((v) => v / len),
+    };
+  };
+
+  // Ray vs axis-aligned bounding box; returns entry distance or null
+  W.rayAabb = (origin, direction, min, max) => {
+    let tmin = -Infinity;
+    let tmax = Infinity;
+
+    for (let i = 0; i < 3; i++) {
+      if (Math.abs(direction[i]) < 1e-8) {
+        if (origin[i] < min[i] || origin[i] > max[i]) return null;
+        continue;
+      }
+
+      let t1 = (min[i] - origin[i]) / direction[i];
+      let t2 = (max[i] - origin[i]) / direction[i];
+      if (t1 > t2) [t1, t2] = [t2, t1];
+      tmin = Math.max(tmin, t1);
+      tmax = Math.min(tmax, t2);
+      if (tmin > tmax) return null;
+    }
+
+    if (tmax < 0) return null;
+    return tmin >= 0 ? tmin : 0;
+  };
+
+  // Closest hit on selectable scene objects from a ray matrix; null if none
+  W.raycast = (matrix) => {
+    const ray = W.rayFromMatrix(matrix);
+    let closest = null;
+
+    const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+    const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    const cross = (a, b) => [
+      a[1] * b[2] - a[2] * b[1],
+      a[2] * b[0] - a[0] * b[2],
+      a[0] * b[1] - a[1] * b[0],
+    ];
+
+    const rayTriangle = (origin, direction, v0, v1, v2) => {
+      const e1 = sub(v1, v0);
+      const e2 = sub(v2, v0);
+      const p = cross(direction, e2);
+      const det = dot(e1, p);
+      if (Math.abs(det) < 1e-8) return null;
+
+      const invDet = 1 / det;
+      const tvec = sub(origin, v0);
+      const u = dot(tvec, p) * invDet;
+      if (u < 0 || u > 1) return null;
+
+      const q = cross(tvec, e1);
+      const v = dot(direction, q) * invDet;
+      if (v < 0 || u + v > 1) return null;
+
+      const t = dot(e2, q) * invDet;
+      return t >= 0 ? t : null;
+    };
+
+    const rayMesh = (origin, direction, model) => {
+      const verts = model.vertices;
+      let meshT = null;
+
+      const testTriangle = (i0, i1, i2) => {
+        const t = rayTriangle(
+          origin,
+          direction,
+          [verts[i0], verts[i0 + 1], verts[i0 + 2]],
+          [verts[i1], verts[i1 + 1], verts[i1 + 2]],
+          [verts[i2], verts[i2 + 1], verts[i2 + 2]],
+        );
+        if (t != null && (meshT == null || t < meshT)) meshT = t;
+      };
+
+      if (model.indices) {
+        for (let i = 0; i < model.indices.length; i += 3) {
+          testTriangle(
+            model.indices[i] * 3,
+            model.indices[i + 1] * 3,
+            model.indices[i + 2] * 3,
+          );
+        }
+      } else {
+        for (let i = 0; i < verts.length; i += 9) {
+          testTriangle(i, i + 3, i + 6);
+        }
+      }
+
+      return meshT;
+    };
+
+    for (const name in W.next) {
+      const object = W.next[name];
+      if (!object?.selectable || !W.models[object.type]) continue;
+
+      const world = W.animation(name);
+      const inv = world.inverse();
+      const localOrigin = inv.transformPoint(
+        new DOMPoint(ray.origin[0], ray.origin[1], ray.origin[2], 1),
+      );
+      const localDir = inv.transformPoint(
+        new DOMPoint(ray.direction[0], ray.direction[1], ray.direction[2], 0),
+      );
+      const dir = [localDir.x, localDir.y, localDir.z];
+      const dirLen = Math.hypot(...dir) || 1;
+      const localRay = {
+        origin: [localOrigin.x, localOrigin.y, localOrigin.z],
+        direction: dir.map((v) => v / dirLen),
+      };
+
+      if (
+        W.rayAabb(
+          localRay.origin,
+          localRay.direction,
+          [-0.5, -0.5, -0.5],
+          [0.5, 0.5, 0.5],
+        ) == null
+      )
+        continue;
+
+      const meshT = rayMesh(
+        localRay.origin,
+        localRay.direction,
+        W.models[object.type],
+      );
+      if (meshT == null) continue;
+
+      const hitLocal = [
+        localRay.origin[0] + localRay.direction[0] * meshT,
+        localRay.origin[1] + localRay.direction[1] * meshT,
+        localRay.origin[2] + localRay.direction[2] * meshT,
+      ];
+      const hitWorld = world.transformPoint(
+        new DOMPoint(hitLocal[0], hitLocal[1], hitLocal[2], 1),
+      );
+      const point = [hitWorld.x, hitWorld.y, hitWorld.z];
+      const distance =
+        (point[0] - ray.origin[0]) * ray.direction[0] +
+        (point[1] - ray.origin[1]) * ray.direction[1] +
+        (point[2] - ray.origin[2]) * ray.direction[2];
+      if (distance < 0) continue;
+
+      if (!closest || distance < closest.distance) {
+        closest = { name, object, distance, point };
+      }
+    }
+
+    return closest;
+  };
+
   // Desktop pointer-lock mouse look + center-screen pick / hit sphere
   // ------------------------------------------------------------------
   const DESKTOP_HIT_ID = "desktop_input_hit";
@@ -834,6 +889,7 @@ import './w.js';
     // Refresh hover + hit sphere each desktop frame (animated targets)
     mouseControls.prevDraw = W.draw;
     W.draw = (...args) => {
+      if (typeof W.fitCanvas === "function") W.fitCanvas();
       if (mouseControls.enabled && !W.xrActive) {
         updateDesktopPick();
       } else if (mouseControls.enabled && W.xrActive) {

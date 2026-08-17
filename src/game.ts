@@ -330,7 +330,7 @@ class Game {
         this.gameState.moves.push('pass');
         this.gameState.turn = Side.GOOSE;
         this.gameState.jumpOnly = false;
-        Events.emit('pass');
+        Events.Instance.emit('pass');
         return true;
     }
 
@@ -372,14 +372,14 @@ class Game {
 
 
         // Validation complete, make the move
-        console.log(`Move ${this.gameState.moves.length+1} - ${this.gameState.turn} - ${moveToString({ from, to })}`);
+        console.log(`Move ${this.gameState.moves.length + 1} - ${this.gameState.turn} - ${moveToString({ from, to })}`);
         this.gameState = makeMove(this.gameState, { from, to });
         this.gameState.moves.push({ from, to });
         printBoard(this.gameState.board);
         if (this.gameState.winner) {
             console.log(`${this.gameState.winner} wins!`);
         }
-        Events.emit('move', { from, to });
+        Events.Instance.emit('move', { from, to });
         return true;
     }
 }
