@@ -12,7 +12,7 @@ export class GameView {
     constructor(game: Game) {
         this.game = game;
         this.parentName = `game_${Math.random().toString(36).substring(2, 15)}`;
-        W.group({ n: this.parentName, x: 0, y: 0, z: -3, rx: 0, ry: 0, rz: 0 });
+        W.group({ n: this.parentName, x: -4.5, y: 0, z: -12, rx: 0, ry: 0, rz: 0 });
         this.setupEvents();
     }
 
@@ -43,7 +43,7 @@ export class GameView {
                 if (!modelName) {
                     continue
                 }
-                W.move({n: modelName, g: this.parentName, size: 0.05, x, z});
+                W.move({n: modelName, g: this.parentName, size: 0.05, x: x * 1.5, z: z * 1.5});
             }
         }
     }
