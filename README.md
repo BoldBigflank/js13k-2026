@@ -2,7 +2,7 @@
 
 # W Improvements
  - Refactor render to allow for multiple cameras
- - Mouse control for viewing/selecting
+ - Mouse/touch selection by raycasting from the camera through the cursor
 
 # Other Improvements
  - perlin noise texture

@@ -3,7 +3,7 @@
 // Loaded after w.js. Adds texture tiling helpers (ts/rep wrap), tileCube,
 // reset canvas sizing, NEAREST sampling, setState return values, group size,
 // the desktop draw loop / scene pass (with background objects), raycast helpers,
-// and desktop pointer-lock mouse look / center-screen picking.
+// and mouse/touch picking along a ray cast from the camera through the cursor.
 
 import './w.js';
 
@@ -658,9 +658,8 @@ import './w.js';
     return tmin >= 0 ? tmin : 0;
   };
 
-  // Closest hit on selectable scene objects from a ray matrix; null if none
-  W.raycast = (matrix) => {
-    const ray = W.rayFromMatrix(matrix);
+  // Closest hit on selectable scene objects from a { origin, direction } ray
+  W.raycastRay = (ray) => {
     let closest = null;
 
     const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -782,26 +781,47 @@ import './w.js';
     return closest;
   };
 
-  // Desktop pointer-lock mouse look + center-screen pick / hit sphere
+  // Closest hit from a pose matrix (origin + -Z direction); null if none
+  W.raycast = (matrix) => W.raycastRay(W.rayFromMatrix(matrix));
+
+  // Ray from the camera through a point on the canvas (client coordinates).
+  // Unprojects through the current projection matrix, so it stays correct when
+  // the fov or the canvas size changes.
+  W.rayFromScreen = (clientX, clientY) => {
+    const rect = W.canvas.getBoundingClientRect();
+    const ndcX = ((clientX - rect.left) / rect.width) * 2 - 1;
+    const ndcY = 1 - ((clientY - rect.top) / rect.height) * 2;
+    const near = W.projection
+      .inverse()
+      .transformPoint(new DOMPoint(ndcX, ndcY, -1, 1));
+    const cam = W.animation("camera");
+    const d = cam.transformPoint(
+      new DOMPoint(near.x / near.w, near.y / near.w, near.z / near.w, 0),
+    );
+    const len = Math.hypot(d.x, d.y, d.z) || 1;
+    return {
+      origin: [cam.m41, cam.m42, cam.m43],
+      direction: [d.x / len, d.y / len, d.z / len],
+    };
+  };
+
+  // Mouse / touch pick from the cursor position + hit sphere
   // ------------------------------------------------------------------
   const DESKTOP_HIT_ID = "desktop_input_hit";
 
   const mouseControls = {
     enabled: false,
     canvas: null,
-    sensitivity: 0.1,
-    pitchMin: -89,
-    pitchMax: 89,
     hitSphereSize: 0.03,
     hitSphereColor: "f00",
     hovered: null,
     selected: null,
+    pointer: null,
     prevDraw: null,
-    onClick: null,
-    onMouseMove: null,
+    onPointerMove: null,
     onPointerDown: null,
     onPointerUp: null,
-    onPointerLockChange: null,
+    onPointerOut: null,
   };
 
   const dispatchMouse = (method, name, object, hit, event) => {
@@ -836,11 +856,12 @@ import './w.js';
     }
   };
 
-  const pickCenter = () => {
-    if (W.xrActive || typeof W.raycast !== "function" || !W.next.camera) {
+  const pickPointer = () => {
+    if (W.xrActive || !mouseControls.pointer || !W.next.camera) {
       return null;
     }
-    return W.raycast(W.animation("camera"));
+    const { x, y } = mouseControls.pointer;
+    return W.raycastRay(W.rayFromScreen(x, y));
   };
 
   const updateDesktopHover = (hit, event) => {
@@ -867,47 +888,30 @@ import './w.js';
     mouseControls.hovered = null;
   };
 
-  const updateDesktopPick = (event) => {
-    if (!mouseControls.enabled || W.xrActive) return;
-    if (document.pointerLockElement !== mouseControls.canvas) {
-      clearDesktopHover(event);
-      clearDesktopHitSphere();
-      return;
-    }
-
-    const hit = pickCenter();
-    updateDesktopHover(hit, event);
-    updateDesktopHitSphere(hit);
+  const setCursor = (hovering) => {
+    const canvas = mouseControls.canvas;
+    if (canvas) canvas.style.cursor = hovering ? "pointer" : "";
   };
 
-  const applyMouseLook = (event) => {
-    if (
-      !mouseControls.enabled ||
-      W.xrActive ||
-      document.pointerLockElement !== mouseControls.canvas
-    ) {
-      return;
-    }
+  const updateDesktopPick = (event) => {
+    if (!mouseControls.enabled || W.xrActive) return;
 
-    const cam = W.next.camera;
-    const cur = W.current.camera;
-    if (!cam) return;
+    const hit = pickPointer();
+    updateDesktopHover(hit, event);
+    updateDesktopHitSphere(hit);
+    setCursor(!!hit);
+    return hit;
+  };
 
-    const ry = (cam.ry || 0) - event.movementX * mouseControls.sensitivity;
-    const rx = Math.max(
-      mouseControls.pitchMin,
-      Math.min(
-        mouseControls.pitchMax,
-        (cam.rx || 0) - event.movementY * mouseControls.sensitivity,
-      ),
-    );
+  const clearDesktopPick = (event) => {
+    mouseControls.pointer = null;
+    clearDesktopHover(event);
+    clearDesktopHitSphere();
+    setCursor(false);
+  };
 
-    cam.rx = rx;
-    cam.ry = ry;
-    if (cur) {
-      cur.rx = rx;
-      cur.ry = ry;
-    }
+  const trackPointer = (event) => {
+    mouseControls.pointer = { x: event.clientX, y: event.clientY };
   };
 
   W.enableMouseControls = (options = {}) => {
@@ -918,32 +922,23 @@ import './w.js';
 
     mouseControls.enabled = true;
     mouseControls.canvas = canvas;
-    mouseControls.sensitivity = options.sensitivity ?? 0.1;
-    mouseControls.pitchMin = options.pitchMin ?? -89;
-    mouseControls.pitchMax = options.pitchMax ?? 89;
     mouseControls.hitSphereSize = options.hitSphereSize ?? 0.03;
     mouseControls.hitSphereColor = options.hitSphereColor ?? "F00";
     mouseControls.hovered = null;
     mouseControls.selected = null;
+    mouseControls.pointer = null;
 
-    mouseControls.onClick = () => {
-      if (W.xrActive) return;
-      if (document.pointerLockElement === canvas) return;
-      canvas.requestPointerLock?.({ unadjustedMovement: true });
-    };
-
-    mouseControls.onMouseMove = (event) => {
-      applyMouseLook(event);
+    mouseControls.onPointerMove = (event) => {
+      if (W.xrActive || !event.isPrimary) return;
+      trackPointer(event);
       updateDesktopPick(event);
     };
 
     mouseControls.onPointerDown = (event) => {
-      if (W.xrActive || event.button !== 0) return;
-      if (document.pointerLockElement !== canvas) return;
+      if (W.xrActive || !event.isPrimary || event.button !== 0) return;
 
-      const hit = pickCenter();
-      updateDesktopHover(hit, event);
-      updateDesktopHitSphere(hit);
+      trackPointer(event);
+      const hit = updateDesktopPick(event);
       if (!hit) {
         mouseControls.selected = null;
         return;
@@ -955,37 +950,36 @@ import './w.js';
     };
 
     mouseControls.onPointerUp = (event) => {
-      if (W.xrActive || event.button !== 0) return;
+      if (W.xrActive || !event.isPrimary || event.button !== 0) return;
       const name = mouseControls.selected;
       mouseControls.selected = null;
-      if (!name || !W.next[name]) return;
-      dispatchMouse("onSelectEnd", name, W.next[name], null, event);
+      if (name && W.next[name]) {
+        dispatchMouse("onSelectEnd", name, W.next[name], null, event);
+      }
+
+      // A finger has no resting position, so it leaves no hover behind
+      if (event.pointerType !== "mouse") clearDesktopPick(event);
     };
 
-    mouseControls.onPointerLockChange = () => {
-      if (document.pointerLockElement === canvas) return;
-      clearDesktopHover();
-      clearDesktopHitSphere();
+    mouseControls.onPointerOut = (event) => {
       mouseControls.selected = null;
+      clearDesktopPick(event);
     };
 
-    canvas.addEventListener("click", mouseControls.onClick);
-    canvas.addEventListener("mousemove", mouseControls.onMouseMove);
+    canvas.addEventListener("pointermove", mouseControls.onPointerMove);
     canvas.addEventListener("pointerdown", mouseControls.onPointerDown);
     canvas.addEventListener("pointerup", mouseControls.onPointerUp);
-    document.addEventListener(
-      "pointerlockchange",
-      mouseControls.onPointerLockChange,
-    );
+    canvas.addEventListener("pointerleave", mouseControls.onPointerOut);
+    canvas.addEventListener("pointercancel", mouseControls.onPointerOut);
 
     // Refresh hover + hit sphere each desktop frame (animated targets)
     mouseControls.prevDraw = W.draw;
     W.draw = (...args) => {
-      if (mouseControls.enabled && !W.xrActive) {
-        updateDesktopPick();
-      } else if (mouseControls.enabled && W.xrActive) {
+      if (mouseControls.enabled && W.xrActive) {
         clearDesktopHover();
         clearDesktopHitSphere();
+      } else if (mouseControls.enabled && mouseControls.pointer) {
+        updateDesktopPick();
       }
       return mouseControls.prevDraw(...args);
     };
@@ -1001,21 +995,15 @@ import './w.js';
     }
 
     const canvas = mouseControls.canvas;
-    if (canvas && mouseControls.onClick) {
-      canvas.removeEventListener("click", mouseControls.onClick);
-      canvas.removeEventListener("mousemove", mouseControls.onMouseMove);
+    if (canvas && mouseControls.onPointerMove) {
+      canvas.removeEventListener("pointermove", mouseControls.onPointerMove);
       canvas.removeEventListener("pointerdown", mouseControls.onPointerDown);
       canvas.removeEventListener("pointerup", mouseControls.onPointerUp);
-    }
-    if (mouseControls.onPointerLockChange) {
-      document.removeEventListener(
-        "pointerlockchange",
-        mouseControls.onPointerLockChange,
-      );
+      canvas.removeEventListener("pointerleave", mouseControls.onPointerOut);
+      canvas.removeEventListener("pointercancel", mouseControls.onPointerOut);
     }
 
-    clearDesktopHover();
-    clearDesktopHitSphere();
+    clearDesktopPick();
 
     if (mouseControls.prevDraw) {
       W.draw = mouseControls.prevDraw;
@@ -1026,11 +1014,11 @@ import './w.js';
     mouseControls.canvas = null;
     mouseControls.hovered = null;
     mouseControls.selected = null;
-    mouseControls.onClick = null;
-    mouseControls.onMouseMove = null;
+    mouseControls.pointer = null;
+    mouseControls.onPointerMove = null;
     mouseControls.onPointerDown = null;
     mouseControls.onPointerUp = null;
-    mouseControls.onPointerLockChange = null;
+    mouseControls.onPointerOut = null;
   };
 
   // Keep references available for debugging / composition
