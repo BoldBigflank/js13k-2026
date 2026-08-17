@@ -118,6 +118,7 @@
     dt = now - (W.lastFrame || now - 16);
     W.lastFrame = now;
     if (!W.xrActive) requestAnimationFrame(W.draw);
+    if (typeof W.fitCanvas === "function") W.fitCanvas();
 
     // Build camera transformation matrix, and send it to the shaders as the Eye matrix
     W.gl.uniformMatrix4fv(

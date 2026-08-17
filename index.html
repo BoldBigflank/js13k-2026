@@ -88,8 +88,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         };
 
         // Camera group
-        W.camera({ n: 'camera', y: 2, z: 0, rx: -30 });
-        W.light({ z: -1 });
+        W.camera({ n: 'camera', y: 6, z: 0, rx: -38 });
+        W.light({ x: -0.5, y: -1, z: 0 });
+        W.ambient(0.3)
         W.group({ n: 'G', ry: 0, z: -2 });
         const unicorn = loadModel('unicorn', { g: 'G' });
 
@@ -100,7 +101,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         });
 
         // Billboard
-        W.billboard({ n: 'sign', g: 'G', x: 2, y: 2, w: 1, h: 2, t: tex, selectable: false });
+        W.billboard({ n: 'sign', g: 'G', x: 5, y: 2, z: -5, w: 2, h: 1, t: tex, selectable: false });
         // Tiled Cube
         W.tileCube({
             n: 'cube', g: 'G', x: -1.5, y: 0.5, w: 1, h: 1, d: 1, t: testTex, selectable: true,
