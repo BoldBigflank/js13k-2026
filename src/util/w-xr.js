@@ -1,6 +1,7 @@
 // WebXR augmentation for W
 // ========================
-// Loaded after w.js (and w-extensions.js).
+// Loaded after w.js and w-extensions.js (which own the desktop draw loop,
+// the shared scene pass and the raycast helpers reused here).
 // Adds XR session lifecycle, stereo drawView, controller input selection,
 // and W.enableXR() for the Enter/Exit VR button.
 //
@@ -32,54 +33,20 @@ import "./w-extensions.js";
 
 (() => {
   const prevReset = W.reset;
-  const prevDraw = W.draw;
   const prevDist = W.dist;
 
-  // options: { xrCompatible, context, autoDraw }
+  // options: { context, autoDraw }
   W.reset = (canvas, options = {}) => {
     if (typeof options !== "object" || options === null) options = {};
 
-    const contextAttribs = { ...(options.context || {}) };
-    // Always request an XR-capable context when this module is loaded
-    contextAttribs.xrCompatible = true;
+    // Always request an XR-capable context while this module is loaded
+    const contextAttribs = { ...(options.context || {}), xrCompatible: true };
 
-    prevReset(canvas, { ...options, context: contextAttribs, autoDraw: false });
+    prevReset(canvas, { ...options, context: contextAttribs });
 
     W.xrActive = false;
     W._xrEye = null;
     W._xrHead = null;
-
-    if (options.autoDraw !== false) setTimeout(W.draw, 16);
-  };
-
-  // Draw the scene (desktop loop)
-  W.draw = (now, dt, v = W.animation("camera")) => {
-    dt = now - (W.lastFrame || now - 16);
-    W.lastFrame = now;
-    if (!W.xrActive) requestAnimationFrame(W.draw);
-    if (typeof W.fitCanvas === "function") W.fitCanvas();
-
-    // Build camera transformation matrix, and send it to the shaders as the Eye matrix
-    W.gl.uniformMatrix4fv(
-      W.gl.getUniformLocation(W.program, "eye"),
-      false,
-      v.toFloat32Array(),
-    );
-
-    // Invert it to obtain the View matrix
-    v.invertSelf();
-
-    // Premultiply it with the Perspective matrix to obtain a Projection-View matrix
-    v.preMultiplySelf(W.projection);
-
-    // send it to the shaders as the pv matrix
-    W.gl.uniformMatrix4fv(
-      W.gl.getUniformLocation(W.program, "pv"),
-      false,
-      v.toFloat32Array(),
-    );
-
-    W.drawScene(dt, true);
   };
 
   // Draw one XR eye using WebXR view matrices
@@ -105,52 +72,6 @@ import "./w-extensions.js";
     W.drawScene(dt || 16, false);
   };
 
-  // Render all scene objects (shared by desktop draw and XR drawView)
-  W.drawScene = (dt, clear = true) => {
-    if (clear) {
-      W.gl.clear(16640 /* W.gl.COLOR_BUFFER_BIT | W.gl.DEPTH_BUFFER_BIT */);
-    }
-
-    const transparent = [];
-    const background = [];
-    for (const i in W.next) {
-      W.next[i].m = W.animation(i);
-
-      if (!W.next[i].t && W.col(W.next[i].b)[3] == 1) {
-        W.render(W.next[i], dt);
-      } else if (W.next[i].bg) {
-        // Background objects (e.g. a skybox enclosing the camera) have an
-        // origin close to the camera despite being visually far away, which
-        // breaks distance-based sorting. Treat them as background instead:
-        // always drawn first, without writing depth, so real geometry drawn
-        // afterward can never be hidden behind them.
-        background.push(W.next[i]);
-      } else {
-        transparent.push(W.next[i]);
-      }
-    }
-
-    transparent.sort((a, b) => W.dist(b) - W.dist(a));
-
-    W.gl.enable(3042 /* BLEND */);
-    for (const i of background) {
-      W.gl.depthMask(0);
-      W.render(i, dt);
-      W.gl.depthMask(1);
-    }
-    for (const i of transparent) {
-      W.render(i, dt);
-    }
-    W.gl.disable(3042 /* BLEND */);
-
-    W.gl.uniform3f(
-      W.gl.getUniformLocation(W.program, "light"),
-      W.lerp("light", "x"),
-      W.lerp("light", "y"),
-      W.lerp("light", "z"),
-    );
-  };
-
   W.startXR = () => {
     W.xrActive = true;
   };
@@ -164,20 +85,8 @@ import "./w-extensions.js";
     setTimeout(W.draw, 16);
   };
 
-  // Prefer XR head pose matrix while in XR; otherwise camera model matrix
-  W.dist = (a, b = W._xrHead || W.next.camera?.m) => {
-    if (!b) {
-      // Fall back to upstream object-based distance when no matrix is available
-      return prevDist(a);
-    }
-    // Matrix form (XR head or camera.m)
-    if (typeof b.m41 === "number") {
-      return (
-        (b.m41 - a.m.m41) ** 2 + (b.m42 - a.m.m42) ** 2 + (b.m43 - a.m.m43) ** 2
-      );
-    }
-    return prevDist(a, b);
-  };
+  // Prefer the XR head pose while in XR; otherwise fall back to the camera
+  W.dist = (a, b = W._xrHead) => prevDist(a, b);
 
   // ------------------------------------------------------------------
   // Controller input / ray selection
@@ -678,5 +587,5 @@ import "./w-extensions.js";
   };
 
   W.WebXRInputSelection = WebXRInputSelection;
-  W._xr = { prevReset, prevDraw, prevDist };
+  W._xr = { prevReset, prevDist };
 })();
