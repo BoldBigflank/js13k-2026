@@ -192,11 +192,11 @@ const colorTextures = Object.values(COLORS).map((color) =>
 // The order determines the index when exporting, so add new textures to the end.
 export const textures = [
   ...colorTextures,
-  rainbowTexture,
-  makeTexture,
-  perlinTexture,
-  testTexture,
-  starTexture,
+  rainbowTexture(),
+  makeTexture(),
+  perlinTexture(),
+  testTexture(),
+  starTexture(),
 ];
 
 export const getTextureByIndex = (textureIndex) => {

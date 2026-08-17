@@ -29,6 +29,15 @@ export class GameView {
                     if (cell === GOOSE) {
                         modelName = loadModel('unicorn');
                         this.pieceToModel[key] = modelName;
+                    } else if (cell === FOX) {
+                        modelName = loadModel('fox');
+                        this.pieceToModel[key] = modelName;
+                    } else if (cell === WALL) {
+                        modelName = loadModel('wall');
+                        this.pieceToModel[key] = modelName;
+                    } else {
+                        modelName = loadModel('empty');
+                        this.pieceToModel[key] = modelName;
                     }
                 }
                 if (!modelName) {

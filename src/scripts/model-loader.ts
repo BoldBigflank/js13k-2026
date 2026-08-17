@@ -82,6 +82,7 @@ export const loadModel = (modelName: keyof typeof models): string => {
         const g = parentName
         const settings = { n, g, w, h, d, x, y, z, rx, ry, rz }
         if (textureIndex !== null) {
+            console.log('textureIndex', textureIndex);
             settings.t = getTextureByIndex(textureIndex)
         }
         if (shape.startsWith('g_')) {
