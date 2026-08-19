@@ -7,6 +7,7 @@ import type { Move } from "../Types";
 export class GameView {
     private game: Game;
     private pieceToModel: Record<string, string> = {};
+    private boardName: string | null = null;
     private parentName: string | null = null;
 
     constructor(game: Game) {
@@ -18,6 +19,10 @@ export class GameView {
 
     render() {
         const board = this.game.gameState.board;
+        if (!this.boardName) {
+            this.boardName = loadModel('board') as string;
+            W.move({ n: this.boardName, g: this.parentName, x: 0, y: 0, z: 0 });
+        }
         for (let z = 0; z < board.length; z++) {
             const row = board[z]
             for (let x = 0; x < row.length; x++) {
@@ -42,7 +47,7 @@ export class GameView {
                 if (!modelName) {
                     continue
                 }
-                W.move({ n: modelName, g: this.parentName, size: 0.05, x: x * 1.5, z: z * 1.5 });
+                W.move({ n: modelName, g: this.parentName, size: 0.1, x: x * 4 - 12, z: z * 4 - 12 });
             }
         }
     }

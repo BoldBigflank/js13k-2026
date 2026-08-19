@@ -1,0 +1,6 @@
+# Ignore artifacts:
+build
+coverage
+src/scripts/libraries
+index.html
+src/models
