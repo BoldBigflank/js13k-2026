@@ -78,12 +78,14 @@ const isJump = (move: Move) => {
 class Player {
     name: string;
     uuid: string;
+    type: 'player' | 'cpu';
     side: Side;
 
-    constructor(name: string, side: Side) {
+    constructor(name: string, side: Side, type: 'player' | 'cpu') {
         this.name = name;
         this.uuid = crypto.randomUUID();
         this.side = side;
+        this.type = type;
     }
 }
 
@@ -281,8 +283,9 @@ const evaluate = (gameState: GameState, perspective: Side): number => {
 class Game {
     gameState: GameState;
     players: Player[];
-
-    constructor() {
+    mode: number;
+    constructor(mode: number) {
+        this.mode = mode;
         this.gameState = {
             board: copyBoard(BOARD_START),
             turn: Side.FOX,
@@ -294,8 +297,8 @@ class Game {
         this.reset()
     }
 
-    addPlayer(name: string, side: Side) {
-        this.players.push(new Player(name, side));
+    addPlayer(name: string, side: Side, type: 'player' | 'cpu') {
+        this.players.push(new Player(name, side, type));
     }
 
     reset() {
@@ -306,6 +309,17 @@ class Game {
             winner: null,
             moves: [],
         };
+        this.players = [];
+        if (this.mode === 0) {
+            this.addPlayer('Player 1', Side.FOX, 'player');
+            this.addPlayer('CPU', Side.GOOSE, 'cpu');
+        } else if (this.mode === 1) {
+            this.addPlayer('CPU', Side.FOX, 'cpu');
+            this.addPlayer('Player 1', Side.GOOSE, 'player');
+        } else if (this.mode === 2) {
+            this.addPlayer('Player 1', Side.FOX, 'player');
+            this.addPlayer('Player 2', Side.GOOSE, 'player');
+        }
     }
 
     pass() {

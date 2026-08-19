@@ -5,16 +5,16 @@ import './scripts/libraries/w-extensions';
 // Optional: remove this import (and W.enableXR?.() below) for desktop-only.
 import './scripts/libraries/w-xr';
 import { perlinTexture, starTexture, testTexture } from './scripts/Textures';
-import { rotateAxisAngle } from './scripts/Utils';
+import { MODES, rotateAxisAngle } from './scripts/Utils';
 import { Game, getBestMove } from './scripts/Game';
 import { loadModel } from './scripts/ModelLoader';
 import { GameView } from './scripts/GameView';
 import { sleep } from './scripts/Utils';
 
 
-const initGame = async () => {
+const initGame = async (mode: number) => {
     const canvas = document.getElementById('c') as HTMLCanvasElement;
-    const game = new Game();
+    const game = new Game(mode);
     const tex = perlinTexture();
 
     const rotateObject = (ry: number) => {
@@ -33,19 +33,19 @@ const initGame = async () => {
     // game.move({ x: 4, y: 2 }, { x: 4, y: 3 }); // 🪿 moves down
     // game.move({ x: 2, y: 2 }, { x: 4, y: 2 }); // 🦊 jumps 🪿 and has another jump
     // game.pass() // 🦊 doesn't take the jump
-    (async () => {
-        // Run the loop in a microtask to avoid blocking the main thread
-        let moveCount = 0;
-        while (!game.gameState.winner && moveCount < 10) {
-            moveCount++;
-            // Optionally, await a small delay to yield to the event loop
-            await new Promise(resolve => setTimeout(resolve, 0));
-            const bestMove = getBestMove(game.gameState, 5);
-            if (bestMove) {
-                game.move(bestMove);
-            }
-        }
-    })();
+    // (async () => {
+    //     // Run the loop in a microtask to avoid blocking the main thread
+    //     let moveCount = 0;
+    //     while (!game.gameState.winner && moveCount < 10) {
+    //         moveCount++;
+    //         // Optionally, await a small delay to yield to the event loop
+    //         await new Promise(resolve => setTimeout(resolve, 0));
+    //         const bestMove = getBestMove(game.gameState, 5);
+    //         if (bestMove) {
+    //             game.move(bestMove);
+    //         }
+    //     }
+    // })();
 
 
     // Camera group
@@ -112,22 +112,30 @@ const setLoading = async (isLoading: boolean) => {
     }
 }
 
+const startGame = async (modeId: number) => {
+    await setLoading(true)
+    await sleep(1) // Wait a tick for the UI to update
+    await initGame(modeId)
+    setLoading(false)
+    // Update the UI
+    document.getElementById('i')!.style.display = 'none'
+    document.getElementById('c')!.style.display = 'block'
+    console.log(modeId)
+}
+
 const setupButton = () => {
     const b = document.getElementById('p') as HTMLButtonElement
     b.style.display = 'inline-block'
-    if (b)
-        b.onclick = async () => {
-            await setLoading(true)
-            await sleep(1) // Wait a tick for the UI to update
-            await initGame()
-            setLoading(false)
-            // Update the UI
-            document.getElementById('i')!.style.display = 'none'
-            document.getElementById('c')!.style.display = 'block'
-        }
-    // const intro = document.createElement('p')
-    // intro.innerHTML = Intro.join('<br>')
-    // document.getElementById('i')?.insertBefore(intro, b)
+    b.innerHTML = ''
+    MODES.forEach(mode => {
+        const p = document.createElement('p')
+        const button = document.createElement('button')
+        button.id = `mode-${mode.id}`
+        button.onclick = () => startGame(mode.id)
+        button.innerHTML = mode.name
+        p.appendChild(button)
+        b.appendChild(p)
+    })
 }
 
 if (document.readyState === 'loading') {

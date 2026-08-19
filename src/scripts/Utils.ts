@@ -9,19 +9,25 @@ export const COLORS: Record<string, string> = {
     PINK: '#ffc6ff',
 }
 
+export const MODES = [
+    { id: 0, name: 'PLAYER VS CPU', players: ['player', 'cpu'] },
+    { id: 1, name: 'CPU VS PLAYER', players: ['cpu', 'player'] },
+    { id: 2, name: 'PLAYER VS PLAYER', players: ['player', 'player'] },
+]
+
 export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
-export const fade = (t) => {
+export const fade = (t: number) => {
     return t * t * t * (t * (t * 6 - 15) + 10);
 };
 
-export const lerp = (a, b, t) => {
+export const lerp = (a: number, b: number, t: number) => {
     return a + (b - a) * t;
 };
 
-export const colorLerp = (color1, color2, t) => {
-    const [r1, g1, b1] = color1.match(/\w\w/g).map((c) => parseInt(c, 16));
-    const [r2, g2, b2] = color2.match(/\w\w/g).map((c) => parseInt(c, 16));
+export const colorLerp = (color1: string, color2: string, t: number) => {
+    const [r1, g1, b1] = color1.match(/\w\w/g)?.map((c) => parseInt(c, 16)) ?? [0, 0, 0];
+    const [r2, g2, b2] = color2.match(/\w\w/g)?.map((c) => parseInt(c, 16)) ?? [0, 0, 0];
     // pad left 0s to 2 digits
     const r = Math.round(lerp(r1, r2, t))
         .toString(16)
@@ -35,9 +41,9 @@ export const colorLerp = (color1, color2, t) => {
     return `#${r}${g}${b}`;
 };
 
-export const floatVal = (val) => parseFloat(`${val || 0}`);
+export const floatVal = (val: number) => parseFloat(`${val || 0}`);
 
-export const fisherYatesShuffle = (array) => {
+export const fisherYatesShuffle = (array: any[]) => {
     for (let i = array.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [array[i], array[j]] = [array[j], array[i]];
@@ -45,7 +51,7 @@ export const fisherYatesShuffle = (array) => {
     return array;
 };
 
-export const sample = (array, count = 1) => {
+export const sample = (array: any[], count = 1) => {
     if (count === 1) {
         return array[Math.floor(Math.random() * array.length)];
     } else {
@@ -63,7 +69,7 @@ export const sample = (array, count = 1) => {
  * @param {number} depth - The depth to extrude the shape along the z axis
  * @returns {Object} model - {vertices, uv, indices}
  */
-export function extrude2DTo3DModel(vector2ds, depth) {
+export function extrude2DTo3DModel(vector2ds: any[], depth: number) {
     if (!Array.isArray(vector2ds) || vector2ds.length < 3)
         throw new Error("vector2ds must be an array of at least 3 [x, y] points");
     const numPoints = vector2ds.length;
@@ -84,7 +90,7 @@ export function extrude2DTo3DModel(vector2ds, depth) {
     const dy = maxY - minY || 1;
 
     // Helpers for uv normalization
-    const toUV = ([x, y]) => [(x - minX) / dx, (y - minY) / dy];
+    const toUV = ([x, y]: [number, number]) => [(x - minX) / dx, (y - minY) / dy];
 
     // Vertices: [x, y, z, ...]
     const vertices = [];
@@ -136,7 +142,7 @@ export function extrude2DTo3DModel(vector2ds, depth) {
     };
 }
 
-export const rotateAxisAngle = (axis, angle) => {
+export const rotateAxisAngle = (axis: [number, number, number], angle: number) => {
     const [x, y, z] = axis;
     const matrix = new DOMMatrix().rotateAxisAngle(x, y, z, angle);
     return matrix;

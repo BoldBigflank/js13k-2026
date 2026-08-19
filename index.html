@@ -5,7 +5,6 @@
     <style>
         html,body{height:100vh;margin:0;padding:0}*{font:normal 24px sans-serif;text-align:center;color:#fff}#c{display:block;margin:0 auto;position:absolute;width:100vw;height:100vh;touch-action:none}body{background:#3230b3;min-height:100vh}button,#VRButton{padding:12px 24px;border:2px solid rgb(255 255 255 / .8);border-radius:2px;background:#ef3eda;outline:0;box-shadow:0 4px 12px rgb(0 0 0 / .3);transition:all 0.2s ease;font-weight:700;text-transform:uppercase;letter-spacing:1px}button:hover,#VRButton:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgb(0 0 0 / .4);border-color:#fff}button:active,#VRButton:active{transform:translateY(0);box-shadow:0 2px 8px rgb(0 0 0 / .3);border-color:rgb(255 255 255 / .9)}#VRButton{position:absolute;bottom:20px;left:0;right:0;margin:0 auto;width:fit-content;z-index:999;cursor:pointer}#VRButton[data-disabled='true']{cursor:auto}.webxr-message{position:absolute;bottom:20px;left:0;right:0;margin:0 auto;width:fit-content;z-index:999;text-decoration:none}
     </style>
-    
     <title>Unicorns and Rainbows</title>
 </head>
 
@@ -15,7 +14,8 @@
     </header>
     <div id="i">
         <h1>UNICORNS AND RAINBOWS</h1>
-        <button id="p" style="display: none">JOIN</button>
+        <div id="p" style="display: none">
+        </div>
     </div>
     <script type="module" src="./src/main.ts"></script>
 </body>
