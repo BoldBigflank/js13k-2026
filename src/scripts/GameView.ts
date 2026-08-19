@@ -1,19 +1,19 @@
 import { Events } from "./libraries/Events";
-import type { Game } from "../game";
-import { loadModel } from "./model-loader";
-import { EMPTY, GOOSE, FOX, WALL } from "../Types";
+import type { Game } from "./Game";
+import { loadModel } from "./ModelLoader";
+import { GOOSE, FOX, WALL, MOVE_EVENT, PASS_EVENT } from "../Types";
 import type { Move } from "../Types";
 
 export class GameView {
     private game: Game;
-    private pieceToModel: Record<string, string> = {};
+    private pieceToModel: Record<string, string | null> = {};
     private boardName: string | null = null;
     private parentName: string | null = null;
 
     constructor(game: Game) {
         this.game = game;
         this.parentName = `game_${Math.random().toString(36).substring(2, 15)}`;
-        W.group({ n: this.parentName, x: -4.5, y: 0, z: -12, rx: 0, ry: 0, rz: 0 });
+        W.group({ n: this.parentName, x: 0, y: 0, z: -16, rx: 0, ry: 0, rz: 0 });
         this.setupEvents();
     }
 
@@ -53,7 +53,7 @@ export class GameView {
     }
 
     onMove(move: Move) {
-        const key = `${move.from.x},${move.from.y}`;
+        const key = `${move.from?.x},${move.from?.y}`;
         const toKey = `${move.to.x},${move.to.y}`;
         const modelId = this.pieceToModel[key]
         this.pieceToModel[toKey] = modelId;
@@ -66,13 +66,13 @@ export class GameView {
     }
 
     setupEvents() {
-        Events.Instance.on('move', this.onMove.bind(this));
-        Events.Instance.on('pass', this.onPass.bind(this));
+        Events.Instance.on(MOVE_EVENT, this.onMove.bind(this));
+        Events.Instance.on(PASS_EVENT, this.onPass.bind(this));
     }
 
     teardownEvents() {
-        Events.Instance.off('move', this.onMove.bind(this));
-        Events.Instance.off('pass', this.onPass.bind(this));
+        Events.Instance.off(MOVE_EVENT, this.onMove.bind(this));
+        Events.Instance.off(PASS_EVENT, this.onPass.bind(this));
     }
 
 }

@@ -4,12 +4,12 @@ import { fileURLToPath } from "node:url";
 import { createCanvas } from "canvas";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const outDir = join(__dirname, "textures");
+const outDir = join(__dirname, "Textures");
 
 await rm(outDir, { recursive: true, force: true });
 await mkdir(outDir, { recursive: true });
 
-// textures.js builds canvases via document.createElement at import time —
+// Textures.js builds canvases via document.createElement at import time —
 // polyfill before the dynamic import so colorTextures can run under Node.
 globalThis.document = {
   createElement(tag) {
@@ -18,7 +18,7 @@ globalThis.document = {
   },
 };
 
-const { textures } = await import("../src/textures.js");
+const { textures } = await import("../src/scripts/Textures");
 
 for (let i = 0; i < textures.length; i++) {
   const entry = textures[i];

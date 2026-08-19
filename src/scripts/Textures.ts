@@ -1,15 +1,14 @@
-import { octavePerlin2 } from "./util/perlin.js";
-import { colorLerp } from "./util/helpers.js";
-import { COLORS } from "./util/constants.js";
+import { octavePerlin2 } from "./libraries/Perlin";
+import { COLORS, colorLerp } from "./Utils";
 
 // W caches uploaded GL textures by canvas.id (see W.textures / W.setState), so every
 // generated texture canvas needs a unique id or later textures will silently reuse
 // whichever GL texture was cached first (they all default to id === '' otherwise).
 let pc = 0;
 
-const _textures = {};
+const _textures: Record<string, HTMLCanvasElement> = {};
 
-const uniqueCanvas = (size) => {
+const uniqueCanvas = (size: number): HTMLCanvasElement => {
   const c = document.createElement("canvas");
   c.id = `w-texture-${pc++}`;
   c.width = c.height = size;
@@ -23,6 +22,9 @@ export const makeTexture = (size = 64) => {
   }
   const c = uniqueCanvas(size);
   const ctx = c.getContext("2d");
+  if (!ctx) {
+    throw new Error("Failed to get context");
+  }
   ctx.imageSmoothingEnabled = false;
   const cells = 4;
   const cell = size / cells;
@@ -53,6 +55,9 @@ export const perlinTexture = (
   }
   const c = uniqueCanvas(size);
   const ctx = c.getContext("2d");
+  if (!ctx) {
+    throw new Error("Failed to get context");
+  }
   ctx.imageSmoothingEnabled = false;
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
@@ -75,6 +80,9 @@ export const testTexture = (size = 64) => {
   // grid of high contrasting squares
   const c = uniqueCanvas(size);
   const ctx = c.getContext("2d");
+  if (!ctx) {
+    throw new Error("Failed to get context");
+  }
   ctx.imageSmoothingEnabled = false;
   const squareSize = size / 4;
   let index = 0;
@@ -88,7 +96,7 @@ export const testTexture = (size = 64) => {
       ctx.font = `${squareSize}px Arial`;
       ctx.textBaseline = "top";
       ctx.fillStyle = "#000000";
-      ctx.fillText(index, x, y);
+      ctx.fillText(`${index}`, x, y);
       index++;
     }
   }
@@ -103,6 +111,9 @@ export const starTexture = (canvasSize = 1024) => {
   }
   const c = uniqueCanvas(canvasSize);
   const ctx = c.getContext("2d");
+  if (!ctx) {
+    throw new Error("Failed to get context");
+  }
   ctx.imageSmoothingEnabled = false;
   // Draw a horizontal gradient from black to white
   const grad = ctx.createLinearGradient(0, 0, 0, canvasSize);
@@ -142,7 +153,7 @@ export const starTexture = (canvasSize = 1024) => {
     ctx.arc(0, 0, starSize / 2, 0, Math.PI * 2);
     ctx.globalAlpha = opacity;
     ctx.fillStyle = color;
-    ctx.antialias = false;
+    ctx.imageSmoothingEnabled = false;
 
     ctx.fill();
     ctx.restore();
@@ -158,6 +169,9 @@ export const rainbowTexture = (canvasSize = 1024) => {
   }
   const c = uniqueCanvas(canvasSize);
   const ctx = c.getContext("2d");
+  if (!ctx) {
+    throw new Error("Failed to get context");
+  }
   ctx.imageSmoothingEnabled = false;
   const gradient = ctx.createLinearGradient(0, 0, 0, canvasSize);
   let i = 0;
@@ -178,6 +192,9 @@ export const colorTexture = (canvasSize = 1024, color = COLORS.RED) => {
   }
   const c = uniqueCanvas(canvasSize);
   const ctx = c.getContext("2d");
+  if (!ctx) {
+    throw new Error("Failed to get context");
+  }
   ctx.imageSmoothingEnabled = false;
   ctx.fillStyle = color;
   ctx.fillRect(0, 0, canvasSize, canvasSize);
@@ -199,6 +216,9 @@ export const textures = [
   starTexture(),
 ];
 
-export const getTextureByIndex = (textureIndex) => {
+export const getTextureByIndex = (textureIndex: number): HTMLCanvasElement | undefined => {
+  if (textureIndex < 0 || textureIndex >= textures.length) {
+    return undefined;
+  }
   return textures[textureIndex];
 };

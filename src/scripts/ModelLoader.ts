@@ -1,7 +1,7 @@
-import { floatVal } from '../util/helpers'
+import { floatVal } from './Utils'
 import { models } from '../models/js13k-2026'
-import { getTextureByIndex } from '../textures'
-// W is defined globally in w.js
+import { getTextureByIndex } from './Textures'
+// W is defined globally in w
 
 type CubeDef = [
     string,

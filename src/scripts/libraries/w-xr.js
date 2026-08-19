@@ -28,8 +28,8 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import "./w.js";
-import "./w-extensions.js";
+import "./w";
+import "./w-extensions";
 
 (() => {
   const prevReset = W.reset;
@@ -502,7 +502,7 @@ import "./w-extensions.js";
       for (const type of ["local-floor", "local"]) {
         try {
           return await session.requestReferenceSpace(type);
-        } catch (_) {}
+        } catch (_) { }
       }
       throw new Error("No supported reference space");
     };

@@ -1,13 +1,12 @@
-import { sample } from './util/helpers';
-import { Events } from './scripts/libraries/Events';
-import type { Coord, Move, Piece, Board } from './Types';
-import { Side, EMPTY, GOOSE, FOX, WALL } from './Types';
-
+import { sample } from './Utils';
+import { Events } from './libraries/Events';
+import type { Coord, Move, Piece, Board } from '../Types';
+import { Side, EMPTY, GOOSE, FOX, WALL, MOVE_EVENT, PASS_EVENT } from '../Types';
 type GameState = {
     board: Board;
-    turn: typeof Side;
+    turn: Side;
     jumpOnly: boolean;
-    winner: typeof Side | null;
+    winner: Side | null;
     moves: Move[];
 }
 
@@ -38,8 +37,8 @@ const printBoard = (board: Board) => {
     console.log(board.map(row => row.join(" ")).join("\n"));
 }
 
-const moveToString = (move: Move) => {
-    if (move === 'pass') {
+const moveToString = (move: Move): string => {
+    if (move.pass === true) {
         return 'PASS';
     }
     return `(${move.from.x},${move.from.y}) -> (${move.to.x},${move.to.y})`;
@@ -62,14 +61,14 @@ const canMoveDiagonally = (pos: Coord) => {
     return pos.x % 2 == pos.y % 2;
 }
 const isDiagonalMove = (move: Move) => {
-    if (move === 'pass') {
+    if (move.pass === true) {
         return false;
     }
     const { from, to } = move;
     return !(from.x - to.x === 0 || from.y - to.y === 0);
 }
 const isJump = (move: Move) => {
-    if (move === 'pass') {
+    if (move.pass === true) {
         return false;
     }
     const { from, to } = move;
@@ -124,7 +123,7 @@ const getPieceCount = (board: Board, piece: Piece): number => {
 
 const makeMove = (gameState: GameState, move: Move): GameState => {
     const newGameState = copyGameState(gameState);
-    if (move === 'pass') {
+    if (move.pass === true) {
         newGameState.turn = newGameState.turn === Side.FOX ? Side.GOOSE : Side.FOX;
         newGameState.jumpOnly = false;
         return newGameState;
@@ -173,7 +172,7 @@ const getValidMoves = (gameState: GameState, perspective?: Side): Move[] => {
     const isFox = perspective === Side.FOX;
     const pieces = getPiecesByType(board, perspective);
     if (isFox && jumpOnly) {
-        moves.push("pass")
+        moves.push({ from: { x: 0, y: 0 }, to: { x: 0, y: 0 }, pass: true });
     }
     for (const piece of pieces) {
         for (const [x, y] of ORTHOGONAL_MOVES) {
@@ -326,15 +325,15 @@ class Game {
             return false;
         }
         console.log(`${this.gameState.turn} passed`);
-        this.gameState.moves.push('pass');
+        this.gameState.moves.push({ from: { x: 0, y: 0 }, to: { x: 0, y: 0 }, pass: true });
         this.gameState.turn = Side.GOOSE;
         this.gameState.jumpOnly = false;
-        Events.Instance.emit('pass');
+        Events.Instance.emit(PASS_EVENT);
         return true;
     }
 
     move(move: Move) {
-        if (move === 'pass') {
+        if (move.pass === true) {
             return this.pass();
         }
         const { from, to } = move;
@@ -371,13 +370,13 @@ class Game {
 
 
         // Validation complete, make the move
-        this.gameState = makeMove(this.gameState, { from, to });
-        this.gameState.moves.push({ from, to });
+        this.gameState = makeMove(this.gameState, move);
+        this.gameState.moves.push(move);
         printBoard(this.gameState.board);
         if (this.gameState.winner) {
             console.log(`${this.gameState.winner} wins!`);
         }
-        Events.Instance.emit('move', { from, to });
+        Events.Instance.emit(MOVE_EVENT, move);
         return true;
     }
 }

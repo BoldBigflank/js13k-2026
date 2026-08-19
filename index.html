@@ -2,139 +2,22 @@
 <html>
 
 <head>
-    <meta charset='utf-8'>
-    <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
-    <meta name='mobile-web-app-capable' content='yes'>
-    <meta name='apple-mobile-web-app-capable' content='yes'>
     <style>
-        html,
-        body {
-            height: 100%;
-            margin: 0;
-            background: #3230b3;
-            font: 24px sans-serif;
-            color: #fff;
-            text-align: center
-        }
-
-        #c {
-            position: fixed;
-            inset: 0;
-            display: block;
-            width: 100vw;
-            height: 100vh;
-            touch-action: none
-        }
-
-        header {
-            position: absolute;
-            z-index: 1;
-            inset: 0 auto auto 0;
-            right: 0;
-            margin: 0 auto;
-            width: fit-content
-        }
+        html,body{height:100vh;margin:0;padding:0}*{font:normal 24px sans-serif;text-align:center;color:#fff}#c{display:block;margin:0 auto;position:absolute;width:100vw;height:100vh;touch-action:none}body{background:#3230b3;min-height:100vh}button,#VRButton{padding:12px 24px;border:2px solid rgb(255 255 255 / .8);border-radius:2px;background:#ef3eda;outline:0;box-shadow:0 4px 12px rgb(0 0 0 / .3);transition:all 0.2s ease;font-weight:700;text-transform:uppercase;letter-spacing:1px}button:hover,#VRButton:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgb(0 0 0 / .4);border-color:#fff}button:active,#VRButton:active{transform:translateY(0);box-shadow:0 2px 8px rgb(0 0 0 / .3);border-color:rgb(255 255 255 / .9)}#VRButton{position:absolute;bottom:20px;left:0;right:0;margin:0 auto;width:fit-content;z-index:999;cursor:pointer}#VRButton[data-disabled='true']{cursor:auto}.webxr-message{position:absolute;bottom:20px;left:0;right:0;margin:0 auto;width:fit-content;z-index:999;text-decoration:none}
     </style>
-
-    <link rel='icon' type='image/png' sizes='32x32' href='favicon-32x32.png'>
-    <link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
+    
     <title>Unicorns and Rainbows</title>
 </head>
 
 <body>
-    <canvas id=c width=1024 height=768></canvas>
+    <canvas id="c" style="display: none"></canvas>
     <header>
     </header>
-    <script type="module">
-        // W must be evaluated first: it defines the global that every module below uses.
-        import './src/util/w.js';
-        import './src/util/w-extensions.js';
-        // Optional: remove this import (and W.enableXR?.() below) for desktop-only.
-        import './src/util/w-xr.js';
-        import { perlinTexture, starTexture, testTexture } from './src/textures.js';
-        import { extrude2DTo3DModel, rotateAxisAngle } from './src/util/helpers.js';
-        import { Game, getBestMove, printBoard } from './src/game.ts';
-        import { loadModel } from './src/scripts/model-loader.ts';
-        import { GameView } from './src/scripts/game-view.ts';
-
-        const game = new Game();
-        // Test moves
-        // game.move({ x: 3, y: 3 }, { x: 2, y: 4 }); // 🦊 moves away
-        // game.move({ x: 2, y: 2 }, { x: 2, y: 3 }); // 🪿 moves down
-        // game.move({ x: 2, y: 4 }, { x: 2, y: 2 }); // 🦊 jumps 🪿
-        // game.move({ x: 4, y: 2 }, { x: 4, y: 3 }); // 🪿 moves down
-        // game.move({ x: 2, y: 2 }, { x: 4, y: 2 }); // 🦊 jumps 🪿 and has another jump
-        // game.pass() // 🦊 doesn't take the jump
-        (async () => {
-            // Run the loop in a microtask to avoid blocking the main thread
-            let moveCount = 0;
-            while (!game.gameState.winner && moveCount < 10) {
-                moveCount++;
-                // Optionally, await a small delay to yield to the event loop
-                await new Promise(resolve => setTimeout(resolve, 0));
-                const bestMove = getBestMove(game.gameState, 5);
-                game.move(bestMove);
-            }
-        })();
-
-
-        const canvas = document.getElementById('c');
-        W.reset(canvas);
-
-        W.enableMouseControls();
-        W.enableXR?.();
-
-        const tex = perlinTexture();
-        const starTex = starTexture(2048);
-        const testTex = testTexture(2048);
-        const rotateObject = (ry) => {
-            return ({ name }) => W.move({ n: name, ry: ry, a: 1000 });
-        };
-
-        // Camera group
-        W.camera({ n: 'camera', y: 6, z: 0, rx: -38 });
-        W.light({ x: -0.5, y: -1, z: 0 });
-        W.ambient(0.3)
-        W.group({ n: 'G', ry: 0, z: -2 });
-        const unicorn = loadModel('unicorn', { g: 'G' });
-
-        // Floor
-        W.plane({
-            n: 'floor',
-            g: 'G', x: 0, y: -1, rx: -90, w: 200, h: 200, ts: 2, t: tex, b: '00f', mix: 0.5, selectable: false,
-        });
-
-        // Billboard
-        W.billboard({ n: 'sign', g: 'G', x: 5, y: 2, z: -5, w: 2, h: 1, t: tex, selectable: false });
-        // Tiled Cube
-        W.tileCube({
-            n: 'cube', g: 'G', x: -1.5, y: 0.5, w: 1, h: 1, d: 1, t: testTex, selectable: true,
-            onSelectStart: rotateObject(90),
-            onSelectEnd: rotateObject(0),
-        });
-
-        // Pyramid
-        // W.pyramid({ g: 'G', x: 0, y: 0.5, ts: 3, t: tex, selectable: true });
-
-        // Cylinder
-        W.cylinder({ n: 'cylinder', g: 'G', rx: 0, b: '00f', mix: 0.1, w: 1, h: 1, d: 1, t: testTex });
-        let cylinderRotation = 0;
-        setInterval(() => {
-            cylinderRotation += 0.01;
-            const rotationMatrix = rotateAxisAngle([0, 18, 100], cylinderRotation);
-            W.move({ n: 'cylinder', M: rotationMatrix });
-            W.move({ n: 'skybox', M: rotationMatrix });
-
-            W.move({ n: unicorn, ry: cylinderRotation * 30 })
-        }, 16);
-
-        // Star skybox
-        // Attached to the camera
-        const starSkybox = W.sphere({ n: 'skybox', t: starTex, x: 0, y: 2, z: 0, rx: 23, size: -500, unlit: true });
-
-        const gameView = new GameView(game);
-        gameView.render();
-    </script>
+    <div id="i">
+        <h1>UNICORNS AND RAINBOWS</h1>
+        <button id="p" style="display: none">JOIN</button>
+    </div>
+    <script type="module" src="./src/main.ts"></script>
 </body>
 
 </html>

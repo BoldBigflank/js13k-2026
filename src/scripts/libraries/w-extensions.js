@@ -5,7 +5,7 @@
 // the desktop draw loop / scene pass (with background objects), raycast helpers,
 // and mouse/touch picking along a ray cast from the camera through the cursor.
 
-import './w.js';
+import './w';
 
 (() => {
   const originalReset = W.reset;

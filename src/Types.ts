@@ -1,9 +1,3 @@
-
-enum Side {
-    GOOSE = '🪿',
-    FOX = '🦊'
-}
-
 type Coord = {
     x: number;
     y: number;
@@ -12,7 +6,8 @@ type Coord = {
 type Move = {
     from: Coord;
     to: Coord;
-} | 'pass';
+    pass?: boolean;
+};
 
 // Helpers
 const EMPTY = "🟩";
@@ -20,8 +15,16 @@ const GOOSE = "🪿";
 const FOX = "🦊";
 const WALL = "🟫";
 
+enum Side {
+    GOOSE = "🪿",
+    FOX = "🦊"
+}
+
 type Piece = typeof EMPTY | typeof GOOSE | typeof FOX | typeof WALL;
 type Board = Piece[][];
+
+export const MOVE_EVENT = 0;
+export const PASS_EVENT = 1;
 
 export type { Coord, Move, Piece, Board };
 export { Side, EMPTY, GOOSE, FOX, WALL };
