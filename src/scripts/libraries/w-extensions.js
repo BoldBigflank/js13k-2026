@@ -658,9 +658,117 @@ import './w';
     return tmin >= 0 ? tmin : 0;
   };
 
+  // Parent chain from leaf to root via `g` (cycle-safe)
+  W.ancestors = (name) => {
+    const chain = [];
+    const seen = new Set();
+    let current = name;
+    while (current && W.next[current] && !seen.has(current)) {
+      seen.add(current);
+      chain.push(current);
+      current = W.next[current].g;
+    }
+    return chain;
+  };
+
+  // True if this object or any ancestor has selectable: true
+  W.isSelectable = (name, cache) => {
+    if (cache && name in cache) return cache[name];
+    const seen = new Set();
+    let current = name;
+    let result = false;
+    while (current && W.next[current] && !seen.has(current)) {
+      seen.add(current);
+      if (W.next[current].selectable) {
+        result = true;
+        break;
+      }
+      if (cache && current in cache) {
+        result = cache[current];
+        break;
+      }
+      current = W.next[current].g;
+    }
+    if (cache) {
+      for (const n of seen) cache[n] = result;
+    }
+    return result;
+  };
+
+  // Dispatch `method` from startName up the `g` chain until stopPropagation()
+  W.bubble = (method, startName, payload = {}, getHandler) => {
+    let stopped = false;
+    const targetName = payload.targetName ?? startName;
+    const event = {
+      ...payload,
+      targetName,
+      target: payload.target ?? W.next[targetName],
+      stopPropagation() {
+        stopped = true;
+      },
+    };
+    for (const name of W.ancestors(startName)) {
+      const object = W.next[name];
+      if (!object) continue;
+      event.name = name;
+      event.object = object;
+      const fn = getHandler
+        ? getHandler(method, object)
+        : object[method];
+      if (typeof fn === "function") fn(event);
+      if (stopped) break;
+    }
+  };
+
+  // Fire onHoverEnd / onHoverStart on nodes that actually entered or left
+  W.hoverTransition = (prevName, nextName, payload = {}, getHandler) => {
+    const prevChain = prevName ? W.ancestors(prevName) : [];
+    const nextChain = nextName ? W.ancestors(nextName) : [];
+    const nextSet = new Set(nextChain);
+    const prevSet = new Set(prevChain);
+
+    const fire = (method, name, extra) => {
+      const object = W.next[name];
+      if (!object) return false;
+      let stopped = false;
+      const event = {
+        ...payload,
+        ...extra,
+        name,
+        object,
+        targetName: extra.targetName,
+        target: extra.target ?? W.next[extra.targetName],
+        stopPropagation() {
+          stopped = true;
+        },
+      };
+      const fn = getHandler
+        ? getHandler(method, object)
+        : object[method];
+      if (typeof fn === "function") fn(event);
+      return stopped;
+    };
+
+    for (const name of prevChain) {
+      if (nextSet.has(name)) break;
+      if (fire("onHoverEnd", name, { hit: null, targetName: prevName })) break;
+    }
+    for (const name of nextChain) {
+      if (prevSet.has(name)) break;
+      if (
+        fire("onHoverStart", name, {
+          hit: payload.hit,
+          targetName: nextName,
+        })
+      )
+        break;
+    }
+  };
+
   // Closest hit on selectable scene objects from a { origin, direction } ray
   W.raycastRay = (ray) => {
     let closest = null;
+    const selectableCache = Object.create(null);
 
     const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
     const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -724,7 +832,8 @@ import './w';
 
     for (const name in W.next) {
       const object = W.next[name];
-      if (!object?.selectable || !W.models[object.type]) continue;
+      if (!object || !W.models[object.type]) continue;
+      if (!W.isSelectable(name, selectableCache)) continue;
 
       const world = W.animation(name);
       const inv = world.inverse();
@@ -825,10 +934,8 @@ import './w';
   };
 
   const dispatchMouse = (method, name, object, hit, event) => {
-    const fn = object?.[method];
-    if (typeof fn === "function") {
-      fn({ name, object, hit, event });
-    }
+    if (!name || !object) return;
+    W.bubble(method, name, { hit, event, targetName: name, target: object });
   };
 
   const clearDesktopHitSphere = () => {
@@ -869,9 +976,7 @@ import './w';
     const prev = mouseControls.hovered;
 
     if (prev !== next) {
-      if (prev && W.next[prev]) {
-        dispatchMouse("onHoverEnd", prev, W.next[prev], null, event);
-      }
+      W.hoverTransition(prev, next, { hit, event });
       mouseControls.hovered = next;
     }
 
@@ -882,8 +987,8 @@ import './w';
 
   const clearDesktopHover = (event) => {
     const prev = mouseControls.hovered;
-    if (prev && W.next[prev]) {
-      dispatchMouse("onHoverEnd", prev, W.next[prev], null, event);
+    if (prev) {
+      W.hoverTransition(prev, null, { hit: null, event });
     }
     mouseControls.hovered = null;
   };

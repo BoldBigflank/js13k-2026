@@ -32,9 +32,21 @@ export class GameView {
                 if (!modelName) {
                     if (cell === GOOSE) {
                         modelName = loadModel('unicorn');
+                        W.move({
+                            n: modelName,
+                            selectable: true,
+                            onHoverStart: (object) => {
+                                W.move({ n: object.name, ry: 0 })
+                                W.move({ n: object.name, ry: 360, a: 1000 })
+                            },
+                            onSelectStart: (object) => {
+                                console.log('select', object);
+                            }
+                        })
                         this.pieceToModel[key] = modelName;
                     } else if (cell === FOX) {
                         modelName = loadModel('fox');
+                        W.move({ n: modelName, selectable: true })
                         this.pieceToModel[key] = modelName;
                     } else if (cell === WALL) {
                         modelName = loadModel('wall');
@@ -48,6 +60,8 @@ export class GameView {
                     continue
                 }
                 W.move({ n: modelName, g: this.parentName, size: 0.1, x: x * 4 - 12, z: z * 4 - 12 });
+
+                // TODO: Make Events.Instance.on(`click:${modelName}`, this.onPieceClick.bind(this));
             }
         }
     }

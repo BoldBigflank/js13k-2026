@@ -174,8 +174,18 @@ import "./w-extensions";
     }
 
     dispatch(method, ctx) {
-      const fn = this.getHandler(method, ctx.object);
-      if (typeof fn === "function") fn(ctx);
+      const startName = ctx.name;
+      if (!startName) return;
+      W.bubble(
+        method,
+        startName,
+        {
+          ...ctx,
+          targetName: ctx.targetName ?? startName,
+          target: ctx.target ?? ctx.object,
+        },
+        (m, object) => this.getHandler(m, object),
+      );
     }
 
     ctx(
@@ -205,27 +215,28 @@ import "./w-extensions";
     updateHover(hand, hit, inputSource, frame) {
       const next = hit?.name ?? null;
       const prev = this._hovered[hand];
+      const getHandler = (m, object) => this.getHandler(m, object);
+      const extra = {
+        hit: hit ?? null,
+        event: null,
+        hand,
+        inputSource,
+        frame,
+        input: this,
+        confirmed: false,
+      };
 
       if (prev !== next) {
-        if (prev && W.next[prev]) {
-          this.dispatch(
-            "onHoverEnd",
-            this.ctx(
-              { name: prev, object: W.next[prev], hit: null },
-              { hand, inputSource, frame },
-            ),
-          );
-        }
+        W.hoverTransition(prev, next, extra, getHandler);
         this._hovered[hand] = next;
       }
 
       if (next) {
-        this.dispatch(
+        W.bubble(
           "onHover",
-          this.ctx(
-            { name: hit.name, object: hit.object, hit },
-            { hand, inputSource, frame },
-          ),
+          next,
+          { ...extra, hit, targetName: next, target: hit.object },
+          getHandler,
         );
       }
     }
