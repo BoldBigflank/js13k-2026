@@ -1,7 +1,7 @@
 import { Events } from "./libraries/Events";
 import type { Game } from "./Game";
 import { loadModel } from "./ModelLoader";
-import { GOOSE, FOX, WALL, MOVE_EVENT, PASS_EVENT } from "../Types";
+import { GOOSE, FOX, WALL, MOVE_EVENT, PASS_EVENT, WALL } from "../Types";
 import type { Move } from "../Types";
 
 export class GameView {
@@ -29,6 +29,7 @@ export class GameView {
                 const cell = row[x];
                 const key = `${x},${z}`;
                 let modelName = this.pieceToModel[key];
+                console.log(`cell: ${cell}, key: ${key}, modelName: ${modelName}`);
                 if (!modelName) {
                     if (cell === GOOSE) {
                         modelName = loadModel('unicorn');
@@ -38,15 +39,11 @@ export class GameView {
                             onHoverStart: (object) => {
                                 W.move({ n: object.name, ry: 0 })
                                 W.move({ n: object.name, ry: 360, a: 1000 })
-                            },
-                            onSelectStart: (object) => {
-                                console.log('select', object);
                             }
                         })
                         this.pieceToModel[key] = modelName;
                     } else if (cell === FOX) {
                         modelName = loadModel('fox');
-                        W.move({ n: modelName, selectable: true })
                         this.pieceToModel[key] = modelName;
                     } else if (cell === WALL) {
                         modelName = loadModel('wall');
@@ -59,7 +56,18 @@ export class GameView {
                 if (!modelName) {
                     continue
                 }
-                W.move({ n: modelName, g: this.parentName, size: 0.1, x: x * 4 - 12, z: z * 4 - 12 });
+                W.move({
+                    n: modelName,
+                    g: this.parentName,
+                    size: 0.1,
+                    x: x * 4 - 12,
+                    z: z * 4 - 12,
+                    selectable: cell !== WALL,
+                    onSelectStart: (object) => {
+                        console.log('select', JSON.stringify(object));
+                        this.game.clickCoord({ x: x, y: z });
+                    }
+                });
 
                 // TODO: Make Events.Instance.on(`click:${modelName}`, this.onPieceClick.bind(this));
             }

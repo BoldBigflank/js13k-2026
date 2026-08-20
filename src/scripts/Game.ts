@@ -1,4 +1,4 @@
-import { sample } from './Utils';
+import { sample, coordEquals } from './Utils';
 import { Events } from './libraries/Events';
 import type { Coord, Move, Piece, Board } from '../Types';
 import { Side, EMPTY, GOOSE, FOX, WALL, MOVE_EVENT, PASS_EVENT } from '../Types';
@@ -8,6 +8,7 @@ type GameState = {
     jumpOnly: boolean;
     winner: Side | null;
     moves: Move[];
+    selectedPiece: Coord | null;
 }
 
 const BOARD_START: Board = [
@@ -55,6 +56,7 @@ const copyGameState = (gameState: GameState): GameState => {
         jumpOnly: gameState.jumpOnly,
         winner: gameState.winner,
         moves: gameState.moves.map(move => move),
+        selectedPiece: gameState.selectedPiece,
     };
 }
 const canMoveDiagonally = (pos: Coord) => {
@@ -217,6 +219,10 @@ const hasValidMoves = (gameState: GameState): boolean => {
     return getValidMoves(gameState).length > 0;
 }
 
+const isValidMove = (gameState: GameState, move: Move): boolean => {
+    return getValidMoves(gameState).some(m => coordEquals(m.from, move.from) && coordEquals(m.to, move.to));
+}
+
 const isWinningState = (gameState: GameState): boolean => {
     const { board, turn } = gameState;
     // 🦊 wins if there are fewer than 4 🪿 on the board
@@ -292,6 +298,7 @@ class Game {
             jumpOnly: false,
             winner: null,
             moves: [],
+            selectedPiece: null,
         };
         this.players = [];
         this.reset()
@@ -308,6 +315,7 @@ class Game {
             jumpOnly: false,
             winner: null,
             moves: [],
+            selectedPiece: null,
         };
         this.players = [];
         if (this.mode === 0) {
@@ -322,6 +330,21 @@ class Game {
         }
     }
 
+    clickCoord(coord: Coord) {
+        console.log(`clickCoord: ${JSON.stringify(coord)}`);
+        // When empty, only click pieces for the current turn
+        // When selected, only click an empty space or the selected piece
+        if (this.gameState.selectedPiece === null) {
+            this.gameState.selectedPiece = coord;
+            console.log(`selectedPiece: ${JSON.stringify(this.gameState.selectedPiece)}`);
+        } else if (coordEquals(this.gameState.selectedPiece, coord)) {
+            this.gameState.selectedPiece = null;
+            console.log(`selectedPiece: ${JSON.stringify(this.gameState.selectedPiece)}`);
+        } else {
+            this.move({ from: this.gameState.selectedPiece, to: coord });
+        }
+    }
+
     pass() {
         // The game must not be over
         if (this.gameState.winner !== null) {
@@ -333,8 +356,8 @@ class Game {
             console.log(`Invalid move: ${this.gameState.turn} cannot pass`);
             return false;
         }
-        // The 🦊 must be in jump only mode
-        if (!this.gameState.jumpOnly) {
+        // The move must be valid
+        if (!isValidMove(this.gameState, { from: { x: 0, y: 0 }, to: { x: 0, y: 0 }, pass: true })) {
             console.log(`Invalid move: ${this.gameState.turn} cannot pass`);
             return false;
         }
@@ -376,15 +399,16 @@ class Game {
             }
         }
 
-        // Foxes must jump if they are in jump only mode
-        if (this.gameState.jumpOnly && !isJump(move)) {
-            console.log(`Invalid move: ${from} is not a jump`);
+        // The move must be valid
+        if (!isValidMove(this.gameState, move)) {
+            console.log(`Invalid move: ${move} is not valid`);
             return false;
         }
 
-
         // Validation complete, make the move
         this.gameState = makeMove(this.gameState, move);
+        this.gameState.selectedPiece = null;
+        console.log(`selectedPiece: ${JSON.stringify(this.gameState.selectedPiece)}`);
         this.gameState.moves.push(move);
         printBoard(this.gameState.board);
         if (this.gameState.winner) {

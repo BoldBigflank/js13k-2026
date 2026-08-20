@@ -142,6 +142,12 @@ export function extrude2DTo3DModel(vector2ds: any[], depth: number) {
     };
 }
 
+export const coordEquals = (a: Coord, b: Coord) => {
+    if (a === null || b === null) return a === b;
+    if (a.x !== b.x || a.y !== b.y) return false;
+    return true;
+};
+
 export const rotateAxisAngle = (axis: [number, number, number], angle: number) => {
     const [x, y, z] = axis;
     const matrix = new DOMMatrix().rotateAxisAngle(x, y, z, angle);
