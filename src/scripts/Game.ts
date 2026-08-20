@@ -1,7 +1,7 @@
 import { sample, coordEquals } from './Utils';
 import { Events } from './libraries/Events';
 import type { Coord, Move, Piece, Board } from '../Types';
-import { Side, EMPTY, GOOSE, FOX, WALL, MOVE_EVENT, PASS_EVENT } from '../Types';
+import { Side, EMPTY, GOOSE, FOX, WALL, MOVE_EVENT, PASS_EVENT, JUMP_EVENT } from '../Types';
 type GameState = {
     board: Board;
     turn: Side;
@@ -144,6 +144,7 @@ const makeMove = (gameState: GameState, move: Move): GameState => {
             y: (from.y + to.y) / 2,
         };
         newGameState.board[mid.y][mid.x] = EMPTY;
+        Events.Instance.emit(JUMP_EVENT, mid);
     }
 
     // Check win conditions
@@ -155,7 +156,7 @@ const makeMove = (gameState: GameState, move: Move): GameState => {
     // Check if the fox can jump again
     if (isJump(move)) {
         newGameState.jumpOnly = true;
-        if (!hasValidMoves(newGameState)) {
+        if (getValidMoves(newGameState).length <= 1) {
             newGameState.jumpOnly = false;
             newGameState.turn = newGameState.turn === Side.FOX ? Side.GOOSE : Side.FOX;
             return newGameState;
@@ -334,14 +335,24 @@ class Game {
         console.log(`clickCoord: ${JSON.stringify(coord)}`);
         // When empty, only click pieces for the current turn
         // When selected, only click an empty space or the selected piece
-        if (this.gameState.selectedPiece === null) {
+        if (!this.gameState.selectedPiece) {
+            if (getPieceAtCoord(this.gameState.board, coord) !== this.gameState.turn) {
+                console.log(`Invalid move: ${coord} is not ${this.gameState.turn}`);
+                return false;
+            }
             this.gameState.selectedPiece = coord;
             console.log(`selectedPiece: ${JSON.stringify(this.gameState.selectedPiece)}`);
-        } else if (coordEquals(this.gameState.selectedPiece, coord)) {
-            this.gameState.selectedPiece = null;
-            console.log(`selectedPiece: ${JSON.stringify(this.gameState.selectedPiece)}`);
         } else {
-            this.move({ from: this.gameState.selectedPiece, to: coord });
+            if (coordEquals(this.gameState.selectedPiece, coord)) {
+                console.log(`unselecting piece`);
+                this.gameState.selectedPiece = null;
+            } else if (getPieceAtCoord(this.gameState.board, coord) === EMPTY) {
+                this.move({ from: this.gameState.selectedPiece, to: coord });
+                console.log(`selectedPiece: ${JSON.stringify(this.gameState.selectedPiece)}`);
+            } else {
+                console.log(`Invalid move: ${coord} is not empty`);
+                return false;
+            }
         }
     }
 
@@ -401,7 +412,7 @@ class Game {
 
         // The move must be valid
         if (!isValidMove(this.gameState, move)) {
-            console.log(`Invalid move: ${move} is not valid`);
+            console.log(`Invalid move: ${JSON.stringify(move)} is not valid`);
             return false;
         }
 

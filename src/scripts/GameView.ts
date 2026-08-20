@@ -1,12 +1,12 @@
 import { Events } from "./libraries/Events";
 import type { Game } from "./Game";
 import { loadModel } from "./ModelLoader";
-import { GOOSE, FOX, WALL, MOVE_EVENT, PASS_EVENT, WALL } from "../Types";
-import type { Move } from "../Types";
+import { GOOSE, FOX, WALL, MOVE_EVENT, PASS_EVENT, JUMP_EVENT, EMPTY } from "../Types";
+import type { Move, Coord } from "../Types";
 
 export class GameView {
     private game: Game;
-    private pieceToModel: Record<string, string | null> = {};
+    private coordToName: Record<string, string | null> = {};
     private boardName: string | null = null;
     private parentName: string | null = null;
 
@@ -28,8 +28,14 @@ export class GameView {
             for (let x = 0; x < row.length; x++) {
                 const cell = row[x];
                 const key = `${x},${z}`;
-                let modelName = this.pieceToModel[key];
+                let modelName = this.coordToName[key];
                 console.log(`cell: ${cell}, key: ${key}, modelName: ${modelName}`);
+                if (cell === EMPTY && modelName?.indexOf('unicorn_') === 0) {
+                    W.move({ n: modelName, y: 100, a: 1000 });
+                    this.coordToName[key] = null;
+                    modelName = null;
+                    continue;
+                }
                 if (!modelName) {
                     if (cell === GOOSE) {
                         modelName = loadModel('unicorn');
@@ -41,16 +47,16 @@ export class GameView {
                                 W.move({ n: object.name, ry: 360, a: 1000 })
                             }
                         })
-                        this.pieceToModel[key] = modelName;
+                        this.coordToName[key] = modelName;
                     } else if (cell === FOX) {
                         modelName = loadModel('fox');
-                        this.pieceToModel[key] = modelName;
+                        this.coordToName[key] = modelName;
                     } else if (cell === WALL) {
                         modelName = loadModel('wall');
-                        this.pieceToModel[key] = modelName;
+                        this.coordToName[key] = modelName;
                     } else {
                         modelName = loadModel('empty');
-                        this.pieceToModel[key] = modelName;
+                        this.coordToName[key] = modelName;
                     }
                 }
                 if (!modelName) {
@@ -68,8 +74,6 @@ export class GameView {
                         this.game.clickCoord({ x: x, y: z });
                     }
                 });
-
-                // TODO: Make Events.Instance.on(`click:${modelName}`, this.onPieceClick.bind(this));
             }
         }
     }
@@ -77,13 +81,23 @@ export class GameView {
     onMove(move: Move) {
         const key = `${move.from?.x},${move.from?.y}`;
         const toKey = `${move.to.x},${move.to.y}`;
-        const modelId = this.pieceToModel[key]
-        this.pieceToModel[toKey] = modelId;
-        this.pieceToModel[key] = null;
+        const modelName = this.coordToName[key]
+        this.coordToName[toKey] = modelName;
+        this.coordToName[key] = null;
 
         this.render()
     }
     onPass() {
+        this.render()
+    }
+
+    onJump(coord: Coord) {
+        console.log(`onJump: ${JSON.stringify(coord)}, cell: ${cell}`);
+        const key = `${coord.x},${coord.y}`;
+        const modelName = this.coordToName[key];
+        // Send the model to the sky
+        W.move({ n: modelName, y: 100, a: 1000 });
+        this.coordToName[key] = null;
         this.render()
     }
 
