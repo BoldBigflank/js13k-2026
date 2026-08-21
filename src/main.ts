@@ -11,7 +11,8 @@ import { loadModel } from './scripts/ModelLoader';
 import { GameView } from './scripts/GameView';
 import { sleep } from './scripts/Utils';
 import { CPU } from './scripts/CPU';
-
+import { Events } from './scripts/libraries/Events';
+import { GAME_START_EVENT } from './Types';
 
 const initGame = async (mode: number) => {
     const canvas = document.getElementById('c') as HTMLCanvasElement;
@@ -97,6 +98,7 @@ const initGame = async (mode: number) => {
 
     const gameView = new GameView(game);
     gameView.render();
+    Events.Instance.emit(GAME_START_EVENT);
 }
 
 const setLoading = async (isLoading: boolean) => {

@@ -1,4 +1,4 @@
-import { MOVE_EVENT, JUMP_EVENT, PASS_EVENT, MOVE_EVENT, JUMP_EVENT, PASS_EVENT } from '../Types';
+import { MOVE_EVENT, JUMP_EVENT, PASS_EVENT, GAME_START_EVENT, MOVE_EVENT, JUMP_EVENT, PASS_EVENT } from '../Types';
 import { Events } from './libraries/Events';
 import { Game, getBestMove } from './Game';
 
@@ -30,11 +30,13 @@ export class CPU {
         Events.Instance.on(MOVE_EVENT, this.playNextMove.bind(this));
         Events.Instance.on(JUMP_EVENT, this.playNextMove.bind(this));
         Events.Instance.on(PASS_EVENT, this.playNextMove.bind(this));
+        Events.Instance.on(GAME_START_EVENT, this.playNextMove.bind(this));
     }
 
     teardownEvents() {
         Events.Instance.off(MOVE_EVENT, this.playNextMove.bind(this));
         Events.Instance.off(JUMP_EVENT, this.playNextMove.bind(this));
         Events.Instance.off(PASS_EVENT, this.playNextMove.bind(this));
+        Events.Instance.off(GAME_START_EVENT, this.playNextMove.bind(this));
     }
 }
