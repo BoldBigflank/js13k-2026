@@ -17,10 +17,6 @@ const initGame = async (mode: number) => {
     const game = new Game(mode);
     const tex = perlinTexture();
 
-    const rotateObject = (ry: number) => {
-        return ({ name }: { name: string }) => W.move({ n: name, ry: ry, a: 1000 });
-    };
-
     W.reset(canvas);
 
     W.enableMouseControls();

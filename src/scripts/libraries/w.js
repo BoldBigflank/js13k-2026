@@ -417,9 +417,12 @@ window.W = {
   // -------
 
   // Interpolate a property between two values
-  lerp: (item, property) =>
+  lerp: (item, property, t) =>
     W.next[item]?.a
-      ? W.current[item][property] + (W.next[item][property] - W.current[item][property]) * (W.next[item].f / W.next[item].a)
+      ? W.current[item][property] + (W.next[item][property] - W.current[item][property]) * (
+          t = W.next[item].f / W.next[item].a,
+          W.next[item].ease?.(t) ?? t
+        )
       : W.next[item][property],
 
   // Transition an item

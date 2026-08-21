@@ -3,6 +3,29 @@ import type { Game } from "./Game";
 import { loadModel } from "./ModelLoader";
 import { GOOSE, FOX, WALL, MOVE_EVENT, PASS_EVENT, JUMP_EVENT, EMPTY } from "../Types";
 import type { Move, Coord } from "../Types";
+import { easeOutCubic } from "./Utils";
+
+// Hover animations
+// scale jiggle
+
+// Select animation
+// Grow
+// Jump spin
+
+// Move animation
+// Jump animation
+
+const GOOSE_SIZE = 0.1
+const FOX_SIZE = 0.1
+const EMPTY_SIZE = 0.1
+const WALL_SIZE = 0.1
+
+const SIZES = {
+    [GOOSE]: GOOSE_SIZE,
+    [FOX]: FOX_SIZE,
+    [EMPTY]: EMPTY_SIZE,
+    [WALL]: WALL_SIZE,
+}
 
 export class GameView {
     private game: Game;
@@ -29,8 +52,10 @@ export class GameView {
                 const cell = row[x];
                 const key = `${x},${z}`;
                 let modelName = this.coordToName[key];
+                let size = SIZES[cell as keyof typeof SIZES];
                 console.log(`cell: ${cell}, key: ${key}, modelName: ${modelName}`);
                 if (cell === EMPTY && modelName?.indexOf('unicorn_') === 0) {
+                    // Fling dead unicorns into the sky
                     W.move({ n: modelName, y: 100, a: 1000 });
                     this.coordToName[key] = null;
                     modelName = null;
@@ -43,29 +68,54 @@ export class GameView {
                             n: modelName,
                             selectable: true,
                             onHoverStart: (object) => {
-                                W.move({ n: object.name, ry: 0 })
-                                W.move({ n: object.name, ry: 360, a: 1000 })
+                                W.move({ n: object.name, size: GOOSE_SIZE })
+                                W.move({ n: object.name, size: GOOSE_SIZE * 1.1, a: 1000, ease: easeOutCubic })
                             }
                         })
                         this.coordToName[key] = modelName;
                     } else if (cell === FOX) {
                         modelName = loadModel('fox');
+                        W.move({
+                            n: modelName,
+                            selectable: true,
+                            onHoverStart: (object) => {
+                                W.move({ n: object.name, size: FOX_SIZE })
+                                W.move({ n: object.name, size: FOX_SIZE * 1.1, a: 1000, ease: easeOutCubic })
+                            }
+                        })
                         this.coordToName[key] = modelName;
-                    } else if (cell === WALL) {
-                        modelName = loadModel('wall');
+                    } else if (cell === EMPTY) {
+                        modelName = loadModel('empty');
+                        W.move({
+                            n: modelName,
+                            selectable: true,
+                            onHoverStart: (object) => {
+                                W.move({ n: object.name, size: EMPTY_SIZE })
+                                W.move({ n: object.name, size: EMPTY_SIZE * 1.1, a: 1000, ease: easeOutCubic })
+                            }
+                        })
                         this.coordToName[key] = modelName;
                     } else {
-                        modelName = loadModel('empty');
+                        modelName = loadModel('wall');
+                        W.move({
+                            n: modelName,
+                            selectable: true,
+                            onHoverStart: (object) => {
+                                W.move({ n: object.name, size: WALL_SIZE })
+                                W.move({ n: object.name, size: WALL_SIZE * 1.1, a: 100 })
+                            }
+                        })
                         this.coordToName[key] = modelName;
                     }
                 }
                 if (!modelName) {
                     continue
                 }
+                console.log(`modelName: ${modelName}, size: ${size}`);
                 W.move({
                     n: modelName,
                     g: this.parentName,
-                    size: 0.1,
+                    size: size,
                     x: x * 4 - 12,
                     z: z * 4 - 12,
                     selectable: cell !== WALL,
