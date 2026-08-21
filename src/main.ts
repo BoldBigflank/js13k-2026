@@ -10,11 +10,13 @@ import { Game, getBestMove } from './scripts/Game';
 import { loadModel } from './scripts/ModelLoader';
 import { GameView } from './scripts/GameView';
 import { sleep } from './scripts/Utils';
+import { CPU } from './scripts/CPU';
 
 
 const initGame = async (mode: number) => {
     const canvas = document.getElementById('c') as HTMLCanvasElement;
     const game = new Game(mode);
+    const cpu = new CPU(game);
     const tex = perlinTexture();
 
     W.reset(canvas);

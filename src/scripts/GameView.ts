@@ -1,9 +1,10 @@
 import { Events } from "./libraries/Events";
 import type { Game } from "./Game";
 import { loadModel } from "./ModelLoader";
-import { GOOSE, FOX, WALL, MOVE_EVENT, PASS_EVENT, JUMP_EVENT, EMPTY } from "../Types";
+import { GOOSE, FOX, WALL, MOVE_EVENT, PASS_EVENT, JUMP_EVENT, EMPTY, SELECT_EVENT, SELECT_EVENT } from "../Types";
 import type { Move, Coord } from "../Types";
-import { easeOutCubic } from "./Utils";
+import { easeOutCubic, squashAndStretch } from "./Utils";
+import { getValidToCoords } from "./Game";
 
 // Hover animations
 // scale jiggle
@@ -15,21 +16,19 @@ import { easeOutCubic } from "./Utils";
 // Move animation
 // Jump animation
 
-const GOOSE_SIZE = 0.1
-const FOX_SIZE = 0.1
-const EMPTY_SIZE = 0.1
-const WALL_SIZE = 0.1
-
-const SIZES = {
-    [GOOSE]: GOOSE_SIZE,
-    [FOX]: FOX_SIZE,
-    [EMPTY]: EMPTY_SIZE,
-    [WALL]: WALL_SIZE,
+const onHoverStart = (object: any) => {
+    W.move({ n: object.name, size: 1 })
+    W.move({ n: object.name, size: 1.1, a: 1000, ease: easeOutCubic })
+}
+const onHoverEnd = (object: any) => {
+    W.move({ n: object.name, size: 1.1 })
+    W.move({ n: object.name, size: 1, a: 1000, ease: easeOutCubic })
 }
 
 export class GameView {
     private game: Game;
     private coordToName: Record<string, string | null> = {};
+    private tileModels: (string | null)[][] = [];
     private boardName: string | null = null;
     private parentName: string | null = null;
 
@@ -40,90 +39,127 @@ export class GameView {
         this.setupEvents();
     }
 
+    getModelName(x: number, z: number) {
+        const key = `${x},${z}`;
+        return this.coordToName[key];
+    }
+    setModelName(x: number, z: number, modelName: string) {
+        const key = `${x},${z}`;
+        this.coordToName[key] = modelName;
+    }
+    getTileModelName(x: number, z: number) {
+        return this.tileModels[z][x];
+    }
+
+    renderCell(cell: Piece, x: number, z: number) {
+        let modelName = this.getModelName(x, z);
+        if (cell === EMPTY && modelName?.indexOf('unicorn_') === 0) {
+            // Fling dead unicorns into the sky
+            W.move({ n: modelName, y: 100, a: 1000 });
+            this.setModelName(x, z, null);
+        }
+    }
+
     render() {
         const board = this.game.gameState.board;
+        const turn = this.game.gameState.turn;
+        const selectedPiece = this.game.gameState.selectedPiece;
+        const validToCoords = getValidToCoords(this.game.gameState, selectedPiece);
+
+        // Initialize the board model
         if (!this.boardName) {
             this.boardName = loadModel('board') as string;
             W.move({ n: this.boardName, g: this.parentName, x: 0, y: 0, z: 0 });
         }
-        for (let z = 0; z < board.length; z++) {
-            const row = board[z]
-            for (let x = 0; x < row.length; x++) {
-                const cell = row[x];
-                const key = `${x},${z}`;
-                let modelName = this.coordToName[key];
-                let size = SIZES[cell as keyof typeof SIZES];
-                console.log(`cell: ${cell}, key: ${key}, modelName: ${modelName}`);
-                if (cell === EMPTY && modelName?.indexOf('unicorn_') === 0) {
-                    // Fling dead unicorns into the sky
-                    W.move({ n: modelName, y: 100, a: 1000 });
-                    this.coordToName[key] = null;
-                    modelName = null;
-                    continue;
+
+        // Initialize the tile models
+        if (!this.tileModels.length) {
+            for (let z = 0; z < board.length; z++) {
+                const row = [];
+                for (let x = 0; x < board[z].length; x++) {
+                    const cell = board[z][x];
+                    if (cell !== WALL) {
+                        const modelName = loadModel('empty');
+                        row.push(modelName);
+                        W.move({
+                            n: modelName,
+                            g: this.parentName,
+                            x: x * 4 - 12,
+                            y: 0,
+                            z: z * 4 - 12,
+                            selectable: true,
+                            onHoverStart: onHoverStart,
+                            onHoverEnd: onHoverEnd,
+                            onSelectStart: (object) => {
+                                this.game.clickCoord({ x: x, y: z });
+                            }
+                        })
+                    } else {
+                        row.push(null);
+                    }
                 }
+                this.tileModels.push(row);
+            }    
+        }
+
+        // Render the piece models
+        for (let z = 0; z < board.length; z++) {
+            for (let x = 0; x < board[z].length; x++) {
+                const cell = board[z][x];
+
+                let modelName = this.getModelName(x, z);
+                // Initialize the piece models
                 if (!modelName) {
                     if (cell === GOOSE) {
                         modelName = loadModel('unicorn');
                         W.move({
                             n: modelName,
-                            selectable: true,
-                            onHoverStart: (object) => {
-                                W.move({ n: object.name, size: GOOSE_SIZE })
-                                W.move({ n: object.name, size: GOOSE_SIZE * 1.1, a: 1000, ease: easeOutCubic })
-                            }
+                            selectable: true
                         })
-                        this.coordToName[key] = modelName;
+                        this.setModelName(x, z, modelName);
                     } else if (cell === FOX) {
                         modelName = loadModel('fox');
                         W.move({
                             n: modelName,
-                            selectable: true,
-                            onHoverStart: (object) => {
-                                W.move({ n: object.name, size: FOX_SIZE })
-                                W.move({ n: object.name, size: FOX_SIZE * 1.1, a: 1000, ease: easeOutCubic })
-                            }
+                            selectable: true
                         })
-                        this.coordToName[key] = modelName;
-                    } else if (cell === EMPTY) {
-                        modelName = loadModel('empty');
-                        W.move({
-                            n: modelName,
-                            selectable: true,
-                            onHoverStart: (object) => {
-                                W.move({ n: object.name, size: EMPTY_SIZE })
-                                W.move({ n: object.name, size: EMPTY_SIZE * 1.1, a: 1000, ease: easeOutCubic })
-                            }
-                        })
-                        this.coordToName[key] = modelName;
-                    } else {
-                        modelName = loadModel('wall');
-                        W.move({
-                            n: modelName,
-                            selectable: true,
-                            onHoverStart: (object) => {
-                                W.move({ n: object.name, size: WALL_SIZE })
-                                W.move({ n: object.name, size: WALL_SIZE * 1.1, a: 100 })
-                            }
-                        })
-                        this.coordToName[key] = modelName;
+                        this.setModelName(x, z, modelName);
                     }
                 }
                 if (!modelName) {
                     continue
                 }
-                console.log(`modelName: ${modelName}, size: ${size}`);
+                // Update the piece models
                 W.move({
                     n: modelName,
                     g: this.parentName,
-                    size: size,
                     x: x * 4 - 12,
                     z: z * 4 - 12,
                     selectable: cell !== WALL,
                     onSelectStart: (object) => {
-                        console.log('select', JSON.stringify(object));
                         this.game.clickCoord({ x: x, y: z });
                     }
                 });
+
+                
+
+                // Update click handlers
+
+                if (cell === GOOSE) {
+                    W.move({
+                        n: modelName,
+                        selectable: turn === GOOSE && !selectedPiece,
+                        onHoverStart: turn === GOOSE && !selectedPiece ? onHoverStart : null,
+                        onHoverEnd: turn === GOOSE && !selectedPiece ? onHoverEnd : null
+                    });
+                } else if (cell === FOX) {
+                    W.move({
+                        n: modelName,
+                        selectable: turn === FOX && !selectedPiece,
+                        onHoverStart: turn === FOX && !selectedPiece ? onHoverStart : null,
+                        onHoverEnd: turn === FOX && !selectedPiece ? onHoverEnd : null
+                    });
+                }
             }
         }
     }
@@ -131,34 +167,40 @@ export class GameView {
     onMove(move: Move) {
         const key = `${move.from?.x},${move.from?.y}`;
         const toKey = `${move.to.x},${move.to.y}`;
-        const modelName = this.coordToName[key]
-        this.coordToName[toKey] = modelName;
-        this.coordToName[key] = null;
-
+        const modelName = this.getModelName(move.from.x, move.from.y);
+        this.setModelName(move.to.x, move.to.y, modelName);
+        this.setModelName(move.from.x, move.from.y, null);
         this.render()
     }
     onPass() {
         this.render()
     }
 
-    onJump(coord: Coord) {
-        console.log(`onJump: ${JSON.stringify(coord)}, cell: ${cell}`);
-        const key = `${coord.x},${coord.y}`;
-        const modelName = this.coordToName[key];
-        // Send the model to the sky
-        W.move({ n: modelName, y: 100, a: 1000 });
-        this.coordToName[key] = null;
+    onSelectCoord(coord: Coord) {
         this.render()
+    }
+
+    onJump(coord: Coord) {
+        const modelName = this.getModelName(coord.x, coord.y);
+        if (modelName) {
+            // Send the model to the sky
+            W.move({ n: modelName, y: 30, a: 1000 });
+            this.setModelName(coord.x, coord.y, null);
+            this.render()
+        }
     }
 
     setupEvents() {
         Events.Instance.on(MOVE_EVENT, this.onMove.bind(this));
         Events.Instance.on(PASS_EVENT, this.onPass.bind(this));
+        Events.Instance.on(SELECT_EVENT, this.onSelectCoord.bind(this));
+        Events.Instance.on(JUMP_EVENT, this.onJump.bind(this));
     }
 
     teardownEvents() {
         Events.Instance.off(MOVE_EVENT, this.onMove.bind(this));
         Events.Instance.off(PASS_EVENT, this.onPass.bind(this));
+        Events.Instance.off(SELECT_EVENT, this.onSelectCoord.bind(this));
+        Events.Instance.off(JUMP_EVENT, this.onJump.bind(this));
     }
-
 }

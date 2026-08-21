@@ -1,7 +1,7 @@
 import { sample, coordEquals } from './Utils';
 import { Events } from './libraries/Events';
 import type { Coord, Move, Piece, Board } from '../Types';
-import { Side, EMPTY, GOOSE, FOX, WALL, MOVE_EVENT, PASS_EVENT, JUMP_EVENT } from '../Types';
+import { Side, EMPTY, GOOSE, FOX, WALL, MOVE_EVENT, PASS_EVENT, JUMP_EVENT, SELECT_EVENT } from '../Types';
 type GameState = {
     board: Board;
     turn: Side;
@@ -144,7 +144,6 @@ const makeMove = (gameState: GameState, move: Move): GameState => {
             y: (from.y + to.y) / 2,
         };
         newGameState.board[mid.y][mid.x] = EMPTY;
-        Events.Instance.emit(JUMP_EVENT, mid);
     }
 
     // Check win conditions
@@ -168,6 +167,48 @@ const makeMove = (gameState: GameState, move: Move): GameState => {
     return newGameState;
 }
 
+const getValidToCoords = (gameState: GameState, piece: Coord | null): Coord[] => {
+    if (piece === null) {
+        return [];
+    }
+    const { board, turn, jumpOnly } = gameState;
+    const isFox = turn === Side.FOX;
+    const toCoords: Coord[] = [];
+    for (const [x, y] of ORTHOGONAL_MOVES) {
+        const to = { x: piece.x + x, y: piece.y + y };
+        if (!jumpOnly) {
+            if (getPieceAtCoord(board, to) === EMPTY) {
+                toCoords.push(to);
+            }
+        }
+        // Foxes can jump over a GOOSE into EMPTY
+        if (isFox) {
+            const jumpTo = { x: piece.x + x * 2, y: piece.y + y * 2 };
+            if (getPieceAtCoord(board, to) === GOOSE && getPieceAtCoord(board, jumpTo) === EMPTY) {
+                toCoords.push(jumpTo);
+            }
+        }
+    }
+    if (canMoveDiagonally(piece)) {
+        for (const [x, y] of DIAGONAL_MOVES) {
+            const to = { x: piece.x + x, y: piece.y + y };
+            if (!jumpOnly) {
+                if (getPieceAtCoord(board, to) === EMPTY) {
+                    toCoords.push(to);
+                }
+            }
+            // Foxes can jump over GOOSE into EMPTY
+            if (isFox) {
+                const jumpTo = { x: piece.x + x * 2, y: piece.y + y * 2 };
+                if (getPieceAtCoord(board, to) === GOOSE && getPieceAtCoord(board, jumpTo) === EMPTY) {
+                    toCoords.push(jumpTo);
+                }
+            }
+        }
+    }
+    return toCoords;
+}
+
 const getValidMoves = (gameState: GameState, perspective?: Side): Move[] => {
     const { board, turn, jumpOnly } = gameState;
     if (perspective === undefined) {
@@ -180,38 +221,7 @@ const getValidMoves = (gameState: GameState, perspective?: Side): Move[] => {
         moves.push({ from: { x: 0, y: 0 }, to: { x: 0, y: 0 }, pass: true });
     }
     for (const piece of pieces) {
-        for (const [x, y] of ORTHOGONAL_MOVES) {
-            const to = { x: piece.x + x, y: piece.y + y };
-            if (!jumpOnly) {
-                if (getPieceAtCoord(board, to) === EMPTY) {
-                    moves.push({ from: piece, to });
-                }
-            }
-            // Foxes can jump over a GOOSE into EMPTY
-            if (isFox) {
-                const jumpTo = { x: piece.x + x * 2, y: piece.y + y * 2 };
-                if (getPieceAtCoord(board, to) === GOOSE && getPieceAtCoord(board, jumpTo) === EMPTY) {
-                    moves.push({ from: piece, to: jumpTo });
-                }
-            }
-        }
-        if (canMoveDiagonally(piece)) {
-            for (const [x, y] of DIAGONAL_MOVES) {
-                const to = { x: piece.x + x, y: piece.y + y };
-                if (!jumpOnly) {
-                    if (getPieceAtCoord(board, to) === EMPTY) {
-                        moves.push({ from: piece, to });
-                    }
-                }
-                // Foxes can jump over GOOSE into EMPTY
-                if (isFox) {
-                    const jumpTo = { x: piece.x + x * 2, y: piece.y + y * 2 };
-                    if (getPieceAtCoord(board, to) === GOOSE && getPieceAtCoord(board, jumpTo) === EMPTY) {
-                        moves.push({ from: piece, to: jumpTo });
-                    }
-                }
-            }
-        }
+        moves.push(...getValidToCoords(gameState, piece).map(to => ({ from: piece, to })));
     }
     return moves;
 }
@@ -341,6 +351,7 @@ class Game {
                 return false;
             }
             this.gameState.selectedPiece = coord;
+            Events.Instance.emit(SELECT_EVENT, coord);
             console.log(`selectedPiece: ${JSON.stringify(this.gameState.selectedPiece)}`);
         } else {
             if (coordEquals(this.gameState.selectedPiece, coord)) {
@@ -426,6 +437,13 @@ class Game {
             console.log(`${this.gameState.winner} wins!`);
         }
         Events.Instance.emit(MOVE_EVENT, move);
+        if (isJump(move)) {
+            const mid = {
+                x: (move.from.x + move.to.x) / 2,
+                y: (move.from.y + move.to.y) / 2,
+            };
+            Events.Instance.emit(JUMP_EVENT, mid);
+        }
         return true;
     }
 }
@@ -472,4 +490,4 @@ const getBestMove = (gameState: GameState, depth: number): Move | null => {
     return sample(bestMoves);
 }
 
-export { Game, printBoard, minimax, getBestMove };
+export { Game, printBoard, minimax, getBestMove, getValidToCoords };

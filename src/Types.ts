@@ -26,6 +26,7 @@ type Board = Piece[][];
 export const MOVE_EVENT = 0;
 export const PASS_EVENT = 1;
 export const JUMP_EVENT = 2;
+export const SELECT_EVENT = 3;
 
 export type { Coord, Move, Piece, Board };
 export { Side, EMPTY, GOOSE, FOX, WALL };
