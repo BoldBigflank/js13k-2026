@@ -12,13 +12,12 @@ export class CPU {
     }
 
     async playNextMove() {
-        await sleep(1000);
-        // If it's not the cpu's turn, do nothing
         const cpu = this.game.players.find(p => p.type === 'cpu');
         if (!cpu || this.game.gameState.turn !== cpu.side) {
-            console.log(`CPU not playing next move: ${this.game.gameState.turn} !== ${cpu?.side}`);
             return;
         }
+        await sleep(1000);
+        // If it's not the cpu's turn, do nothing
         const move = getBestMove(this.game.gameState, 3);
         if (move) {
             console.log(`CPU playing next move: ${JSON.stringify(move)}`);

@@ -352,7 +352,6 @@ class Game {
             }
             this.gameState.selectedPiece = coord;
             Events.Instance.emit(SELECT_EVENT, coord);
-            console.log(`selectedPiece: ${JSON.stringify(this.gameState.selectedPiece)}`);
         } else {
             if (coordEquals(this.gameState.selectedPiece, coord)) {
                 console.log(`unselecting piece`);
@@ -365,7 +364,6 @@ class Game {
                 this.gameState.selectedPiece = null;
             } else if (getPieceAtCoord(this.gameState.board, coord) === EMPTY) {
                 this.move({ from: this.gameState.selectedPiece, to: coord });
-                console.log(`selectedPiece: ${JSON.stringify(this.gameState.selectedPiece)}`);
             } else {
                 console.log(`Invalid move: ${coord} is not empty`);
                 return
@@ -436,7 +434,6 @@ class Game {
         // Validation complete, make the move
         this.gameState = makeMove(this.gameState, move);
         this.gameState.selectedPiece = null;
-        console.log(`selectedPiece: ${JSON.stringify(this.gameState.selectedPiece)}`);
         this.gameState.moves.push(move);
         printBoard(this.gameState.board);
         if (this.gameState.winner) {

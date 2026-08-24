@@ -120,7 +120,6 @@ const startGame = async (modeId: number) => {
     // Update the UI
     document.getElementById('i')!.style.display = 'none'
     document.getElementById('c')!.style.display = 'block'
-    console.log(modeId)
 }
 
 const setupButton = () => {
