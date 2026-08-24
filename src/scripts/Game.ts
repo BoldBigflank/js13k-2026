@@ -309,7 +309,7 @@ class Game {
             jumpOnly: false,
             winner: null,
             moves: [],
-            selectedPiece: null,
+            selectedPiece: { x: 3, y: 3 }, // The fox's starting position
         };
         this.players = [];
         this.reset()
@@ -326,7 +326,7 @@ class Game {
             jumpOnly: false,
             winner: null,
             moves: [],
-            selectedPiece: null,
+            selectedPiece: { x: 3, y: 3 }, // The fox's starting position
         };
         this.players = [];
         if (this.mode === 0) {
@@ -341,14 +341,14 @@ class Game {
         }
     }
 
-    clickCoord(coord: Coord) {
+    clickCoord(coord: Coord): undefined {
         console.log(`clickCoord: ${JSON.stringify(coord)}`);
         // When empty, only click pieces for the current turn
         // When selected, only click an empty space or the selected piece
         if (!this.gameState.selectedPiece) {
             if (getPieceAtCoord(this.gameState.board, coord) !== this.gameState.turn) {
                 console.log(`Invalid move: ${coord} is not ${this.gameState.turn}`);
-                return false;
+                return
             }
             this.gameState.selectedPiece = coord;
             Events.Instance.emit(SELECT_EVENT, coord);
@@ -356,13 +356,19 @@ class Game {
         } else {
             if (coordEquals(this.gameState.selectedPiece, coord)) {
                 console.log(`unselecting piece`);
+                if (this.gameState.turn === Side.FOX) {
+                    if (this.gameState.jumpOnly) {
+                        this.pass();
+                    }
+                    return
+                }
                 this.gameState.selectedPiece = null;
             } else if (getPieceAtCoord(this.gameState.board, coord) === EMPTY) {
                 this.move({ from: this.gameState.selectedPiece, to: coord });
                 console.log(`selectedPiece: ${JSON.stringify(this.gameState.selectedPiece)}`);
             } else {
                 console.log(`Invalid move: ${coord} is not empty`);
-                return false;
+                return
             }
         }
     }
@@ -443,6 +449,9 @@ class Game {
                 y: (move.from.y + move.to.y) / 2,
             };
             Events.Instance.emit(JUMP_EVENT, mid);
+        }
+        if (this.gameState.turn === Side.FOX) {
+            this.clickCoord(getPiecesByType(this.gameState.board, Side.FOX)[0]);
         }
         return true;
     }

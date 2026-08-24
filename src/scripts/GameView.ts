@@ -1,9 +1,9 @@
 import { Events } from "./libraries/Events";
 import type { Game } from "./Game";
 import { loadModel } from "./ModelLoader";
-import { GOOSE, FOX, WALL, MOVE_EVENT, PASS_EVENT, JUMP_EVENT, EMPTY, SELECT_EVENT, SELECT_EVENT } from "../Types";
+import { GOOSE, FOX, WALL, MOVE_EVENT, PASS_EVENT, JUMP_EVENT, EMPTY, SELECT_EVENT } from "../Types";
 import type { Move, Coord } from "../Types";
-import { easeOutCubic, squashAndStretch } from "./Utils";
+import { easeOutCubic, squashAndStretch, coordEquals } from "./Utils";
 import { getValidToCoords } from "./Game";
 
 // Hover animations
@@ -48,7 +48,7 @@ export class GameView {
         this.coordToName[key] = modelName;
     }
     getTileModelName(x: number, z: number) {
-        return this.tileModels[z][x];
+        return this.tileModels[z]?.[x] ?? null;
     }
 
     renderCell(cell: Piece, x: number, z: number) {
@@ -74,33 +74,35 @@ export class GameView {
 
         // Initialize the tile models
         if (!this.tileModels.length) {
-            for (let z = 0; z < board.length; z++) {
-                const row = [];
-                for (let x = 0; x < board[z].length; x++) {
-                    const cell = board[z][x];
-                    if (cell !== WALL) {
-                        const modelName = loadModel('empty');
-                        row.push(modelName);
-                        W.move({
-                            n: modelName,
-                            g: this.parentName,
-                            x: x * 4 - 12,
-                            y: 0,
-                            z: z * 4 - 12,
-                            selectable: true,
-                            onHoverStart: onHoverStart,
-                            onHoverEnd: onHoverEnd,
-                            onSelectStart: (object) => {
-                                this.game.clickCoord({ x: x, y: z });
-                            }
-                        })
-                    } else {
-                        row.push(null);
-                    }
-                }
-                this.tileModels.push(row);
-            }    
+            this.tileModels = Array.from({ length: board.length }, () => Array(board[0].length).fill(null));
         }
+        for (let z = 0; z < board.length; z++) {
+            for (let x = 0; x < board[z].length; x++) {
+                const cell = board[z][x];
+                if (cell == WALL) {
+                    continue;
+                }
+                let modelName = this.getTileModelName(x, z);
+                if (!modelName) {
+                    modelName = loadModel('empty');
+                    this.tileModels[z][x] = modelName;
+                }
+                W.move({
+                    n: modelName,
+                    g: this.parentName,
+                    x: x * 4 - 12,
+                    ry: validToCoords.some(coord => coordEquals(coord, { x: x, y: z })) ? 45 : 0,
+                    y: 0,
+                    z: z * 4 - 12,
+                    selectable: true,
+                    onHoverStart: onHoverStart,
+                    onHoverEnd: onHoverEnd,
+                    onSelectStart: (object) => {
+                        this.game.clickCoord({ x: x, y: z });
+                    }
+                })
+            }
+        }    
 
         // Render the piece models
         for (let z = 0; z < board.length; z++) {

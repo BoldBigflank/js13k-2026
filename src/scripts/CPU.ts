@@ -1,6 +1,7 @@
 import { MOVE_EVENT, JUMP_EVENT, PASS_EVENT, GAME_START_EVENT, MOVE_EVENT, JUMP_EVENT, PASS_EVENT } from '../Types';
 import { Events } from './libraries/Events';
 import { Game, getBestMove } from './Game';
+import { sleep } from './Utils';
 
 export class CPU {
     game: Game;
@@ -10,7 +11,8 @@ export class CPU {
 
     }
 
-    playNextMove() {
+    async playNextMove() {
+        await sleep(1000);
         // If it's not the cpu's turn, do nothing
         const cpu = this.game.players.find(p => p.type === 'cpu');
         if (!cpu || this.game.gameState.turn !== cpu.side) {
@@ -27,10 +29,10 @@ export class CPU {
     }
 
     setupEvents() {
-        Events.Instance.on(MOVE_EVENT, this.playNextMove.bind(this));
-        Events.Instance.on(JUMP_EVENT, this.playNextMove.bind(this));
-        Events.Instance.on(PASS_EVENT, this.playNextMove.bind(this));
-        Events.Instance.on(GAME_START_EVENT, this.playNextMove.bind(this));
+        Events.Instance.on(MOVE_EVENT, async () => await this.playNextMove());
+        Events.Instance.on(JUMP_EVENT, async () => await this.playNextMove());
+        Events.Instance.on(PASS_EVENT, async () => await this.playNextMove());
+        Events.Instance.on(GAME_START_EVENT, async () => await this.playNextMove());
     }
 
     teardownEvents() {
