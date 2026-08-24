@@ -82,7 +82,7 @@ const initGame = async (mode: number) => {
     // W.cylinder({ n: 'cylinder', g: 'G', rx: 0, b: '00f', mix: 0.1, w: 1, h: 1, d: 1, t: testTex });
     // // Star skybox
     // const starTex = starTexture(2048);
-    // W.sphere({ n: 'skybox', t: starTex, x: 0, y: 2, z: 0, rx: 23, size: -500, unlit: true });
+    // W.sphere({ n: 'skybox', t: starTex, x: 0, y: 2, z: 0, rx: 23, size: -500, ns: true });
     // // Unicorn
     // const unicorn = loadModel('unicorn');
     // W.move({ n: unicorn, x: 0, y: 0, z: -16 });

@@ -84,13 +84,12 @@ window.W = {
       in vec4 v_pos, v_col, v_uv, v_normal;
       uniform vec3 light;
       uniform vec4 o;
-      uniform float unlit;
       uniform sampler2D sampler;
       out vec4 c;
 
       void main() {
         c = mix(texture(sampler, v_uv.xy), v_col, o[3]);
-        if(unlit <= 0. && o[1] > 0.){
+        if(o[1] > 0.){
           c = vec4(
             c.rgb * (max(0., dot(light, -normalize(
               o[0] > 0.
@@ -358,20 +357,14 @@ window.W = {
         // Enable smooth shading if "s" is true
         object.s,
 
-        // Enable shading if in TRIANGLE* mode and object.ns / object.unlit disabled
-        ((object.mode > 3) || (W.gl[object.mode] > 3)) && !object.ns && !object.unlit ? 1 : 0,
+        // Enable shading if in TRIANGLE* mode and object.ns disabled
+        ((object.mode > 3) || (W.gl[object.mode] > 3)) && !object.ns ? 1 : 0,
 
         // Ambient light
         W.ambientLight || 0.2,
 
         // Texture/color mix (if a texture is present. 0: fully textured, 1: fully colored)
         object.mix
-      );
-
-      // Skip lighting when object.unlit is set
-      W.gl.uniform1f(
-        W.gl.getUniformLocation(W.program, 'unlit'),
-        object.unlit ? 1 : 0
       );
 
       // If the object is a billboard: send a specific uniform to the shaders:

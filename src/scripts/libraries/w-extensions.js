@@ -564,17 +564,11 @@ import './w';
         W.gl.getUniformLocation(W.program, "o"),
         object.s,
         (object.mode > 3 || W.gl[object.mode] > 3) &&
-          !object.ns &&
-          !object.unlit
+          !object.ns
           ? 1
           : 0,
         W.ambientLight || 0.2,
         object.mix,
-      );
-
-      W.gl.uniform1f(
-        W.gl.getUniformLocation(W.program, "unlit"),
-        object.unlit ? 1 : 0,
       );
 
       W.gl.uniform4f(
@@ -955,7 +949,7 @@ import './w';
         s: 1,
         b: mouseControls.hitSphereColor,
         mix: 1,
-        unlit: true,
+        ns: true,
         selectable: false,
       });
     } else {

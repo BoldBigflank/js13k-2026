@@ -334,7 +334,7 @@ import "./w-extensions";
               d: length,
               b: color,
               mix: 1,
-              unlit: true,
+              ns: true,
             },
             activeIds,
           );
@@ -353,7 +353,7 @@ import "./w-extensions";
               s: 1,
               b: color,
               mix: 1,
-              unlit: true,
+              ns: true,
             },
             activeIds,
           );
