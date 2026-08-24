@@ -5,6 +5,8 @@ import { GOOSE, FOX, WALL, MOVE_EVENT, PASS_EVENT, JUMP_EVENT, EMPTY, SELECT_EVE
 import type { Move, Coord } from "../Types";
 import { easeOutCubic, squashAndStretch, coordEquals } from "./Utils";
 import { getValidToCoords } from "./Game";
+import { colorTexture } from "./Textures";
+import { COLORS } from "./Utils";
 
 // Hover animations
 // scale jiggle
@@ -24,6 +26,9 @@ const onHoverEnd = (object: any) => {
     W.move({ n: object.name, size: 1.1 })
     W.move({ n: object.name, size: 1, a: 1000, ease: easeOutCubic })
 }
+
+const redTexture = colorTexture(1024, COLORS.RED);
+const blueTexture = colorTexture(1024, COLORS.BLUE);
 
 export class GameView {
     private game: Game;
@@ -87,22 +92,26 @@ export class GameView {
                     modelName = loadModel('empty');
                     this.tileModels[z][x] = modelName;
                 }
+                const isValidTo = validToCoords.some(coord => coordEquals(coord, { x: x, y: z }));
+                const isValidFrom = !isValidTo && cell === this.game.gameState.turn;
                 W.move({
                     n: modelName,
                     g: this.parentName,
                     x: x * 4 - 12,
-                    ry: validToCoords.some(coord => coordEquals(coord, { x: x, y: z })) ? 45 : 0,
-                    y: 0,
+                    ry: isValidTo ? 45 : 0,
+                    b: isValidTo ? "#f00" : "#0f0",
+                    mix: 0.5,
+                    t: isValidTo ? redTexture : blueTexture,
                     z: z * 4 - 12,
                     selectable: true,
-                    onHoverStart: onHoverStart,
-                    onHoverEnd: onHoverEnd,
-                    onSelectStart: (object) => {
+                    onHoverStart: isValidTo || isValidFrom ? onHoverStart : null,
+                    onHoverEnd: isValidTo || isValidFrom ? onHoverEnd : null,
+                    onSelectStart: isValidTo || isValidFrom ? (object) => {
                         this.game.clickCoord({ x: x, y: z });
-                    }
+                    } : null
                 })
             }
-        }    
+        }
 
         // Render the piece models
         for (let z = 0; z < board.length; z++) {
@@ -143,7 +152,7 @@ export class GameView {
                     }
                 });
 
-                
+
 
                 // Update click handlers
 

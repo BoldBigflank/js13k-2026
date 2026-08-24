@@ -1,3 +1,5 @@
+export const Debug = true;
+
 export const COLORS: Record<string, string> = {
     RED: '#ffadad',
     ORANGE: '#ffd6a5',

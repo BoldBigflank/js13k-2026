@@ -36,7 +36,7 @@ const expandCubeDef = (item: CubeDef): CubeDef => {
     const oXNum = floatVal(oX)
     const oYNum = floatVal(oY)
     const oZNum = floatVal(oZ)
-    const textureIndex = texIdx !== undefined ? floatVal(texIdx) : null
+    const textureIndex = texIdx !== undefined ? floatVal(texIdx) : 0
     return [
         shape,
         name,
@@ -94,7 +94,5 @@ export const loadModel = (modelName: keyof typeof models): string => {
             builtinShape(settings)
         }
     })
-
-    W.move({ n: parentName, z: -20 })
     return parentName
 }
