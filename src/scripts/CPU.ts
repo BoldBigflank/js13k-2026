@@ -29,14 +29,12 @@ export class CPU {
 
     setupEvents() {
         Events.Instance.on(MOVE_EVENT, async () => await this.playNextMove());
-        Events.Instance.on(JUMP_EVENT, async () => await this.playNextMove());
         Events.Instance.on(PASS_EVENT, async () => await this.playNextMove());
         Events.Instance.on(GAME_START_EVENT, async () => await this.playNextMove());
     }
 
     teardownEvents() {
         Events.Instance.off(MOVE_EVENT, this.playNextMove.bind(this));
-        Events.Instance.off(JUMP_EVENT, this.playNextMove.bind(this));
         Events.Instance.off(PASS_EVENT, this.playNextMove.bind(this));
         Events.Instance.off(GAME_START_EVENT, this.playNextMove.bind(this));
     }

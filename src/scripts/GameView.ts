@@ -129,7 +129,7 @@ export class GameView {
                         })
                         this.setModelName(x, z, modelName);
                     } else if (cell === FOX) {
-                        modelName = loadModel('fox');
+                        modelName = loadModel('goblin');
                         W.move({
                             n: modelName,
                             selectable: true
