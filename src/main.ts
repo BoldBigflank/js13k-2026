@@ -49,7 +49,7 @@ const initGame = async (mode: number) => {
 
     // Camera group
     W.camera({ n: 'camera', y: 12, z: 0, rx: -52 });
-    W.light({ x: -0.2, y: -0.5, z: -0.2 });
+    W.light({ x: 0.2, y: -0.7, z: -0.6 });
     W.ambient(0.3)
     W.group({ n: 'G', ry: 0, z: -2 });
 
