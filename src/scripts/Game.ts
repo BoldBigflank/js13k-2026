@@ -1,7 +1,8 @@
 import { sample, coordEquals } from './Utils';
 import { Events } from './libraries/Events';
-import type { Coord, Move, Piece, Board } from '../Types';
-import { Side, EMPTY, GOOSE, FOX, WALL, MOVE_EVENT, PASS_EVENT, JUMP_EVENT, SELECT_EVENT } from '../Types';
+import { copyBoard, getPieceTypeAtCoord, getPiecesByType, getPieceCount, initBoard, movePiece, removePiece, boardToString } from './Board';
+import type { Coord, Move, Board } from '../Types';
+import { Side, EMPTY, GOOSE, FOX, MOVE_EVENT, PASS_EVENT, JUMP_EVENT, SELECT_EVENT } from '../Types';
 type GameState = {
     board: Board;
     turn: Side;
@@ -11,43 +12,8 @@ type GameState = {
     selectedPiece: Coord | null;
 }
 
-const BOARD_START: Board = [
-    [WALL, WALL, GOOSE, GOOSE, GOOSE, WALL, WALL],
-    [WALL, WALL, GOOSE, GOOSE, GOOSE, WALL, WALL],
-    [GOOSE, GOOSE, GOOSE, GOOSE, GOOSE, GOOSE, GOOSE],
-    [GOOSE, EMPTY, EMPTY, FOX, EMPTY, EMPTY, GOOSE],
-    [EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
-    [WALL, WALL, EMPTY, EMPTY, EMPTY, WALL, WALL],
-    [WALL, WALL, EMPTY, EMPTY, EMPTY, WALL, WALL],
-]
-
-// const BOARD_TEST: Board = [
-//     [WALL, WALL, EMPTY, EMPTY, EMPTY, WALL, WALL],
-//     [WALL, WALL, EMPTY, GOOSE, EMPTY, WALL, WALL],
-//     [EMPTY, EMPTY, GOOSE, GOOSE, GOOSE, EMPTY, EMPTY],
-//     [EMPTY, EMPTY, EMPTY, FOX, EMPTY, EMPTY, EMPTY],
-//     [EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
-//     [WALL, WALL, EMPTY, EMPTY, EMPTY, WALL, WALL],
-//     [WALL, WALL, EMPTY, EMPTY, EMPTY, WALL, WALL],
-// ]
-
 const ORTHOGONAL_MOVES = [[-1, 0], [1, 0], [0, -1], [0, 1]];
 const DIAGONAL_MOVES = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
-
-const printBoard = (board: Board) => {
-    console.log(board.map(row => row.join(" ")).join("\n"));
-}
-
-const moveToString = (move: Move): string => {
-    if (move.pass === true) {
-        return 'PASS';
-    }
-    return `(${move.from.x},${move.from.y}) -> (${move.to.x},${move.to.y})`;
-}
-
-const copyBoard = (board: Board): Board => {
-    return board.map(row => row.map(piece => piece));
-}
 
 const copyGameState = (gameState: GameState): GameState => {
     return {
@@ -91,40 +57,6 @@ class Player {
     }
 }
 
-const getPieceAtCoord = (board: Board, coord: Coord, xOffset: number = 0, yOffset: number = 0): Piece => {
-    try {
-        if (
-            coord.x + xOffset < 0 ||
-            coord.x + xOffset >= board[0].length ||
-            coord.y + yOffset < 0 ||
-            coord.y + yOffset >= board.length
-        ) {
-            return WALL;
-        }
-        return board[coord.y + yOffset][coord.x + xOffset];
-    } catch (error) {
-        console.error(`Error getting piece at coord: ${coord} + (${xOffset},${yOffset})`);
-        console.error(error);
-        throw error;
-    }
-}
-
-const getPiecesByType = (board: Board, piece: Piece): Coord[] => {
-    const pieces: Coord[] = [];
-    for (let y = 0; y < board.length; y++) {
-        for (let x = 0; x < board[y].length; x++) {
-            if (board[y][x] === piece) {
-                pieces.push({ x, y });
-            }
-        }
-    }
-    return pieces;
-}
-
-const getPieceCount = (board: Board, piece: Piece): number => {
-    return getPiecesByType(board, piece).length;
-}
-
 const makeMove = (gameState: GameState, move: Move): GameState => {
     const newGameState = copyGameState(gameState);
     if (move.pass === true) {
@@ -133,9 +65,7 @@ const makeMove = (gameState: GameState, move: Move): GameState => {
         return newGameState;
     }
     const { from, to } = move;
-    const piece = getPieceAtCoord(newGameState.board, from);
-    newGameState.board[to.y][to.x] = piece;
-    newGameState.board[from.y][from.x] = EMPTY;
+    newGameState.board = movePiece(newGameState.board, from, to);
 
     // Jumps are always 2 spaces vertically and/or horizontally
     if (isJump(move)) {
@@ -143,7 +73,7 @@ const makeMove = (gameState: GameState, move: Move): GameState => {
             x: (from.x + to.x) / 2,
             y: (from.y + to.y) / 2,
         };
-        newGameState.board[mid.y][mid.x] = EMPTY;
+        newGameState.board = removePiece(newGameState.board, mid);
     }
 
     // Check win conditions
@@ -177,14 +107,14 @@ const getValidToCoords = (gameState: GameState, piece: Coord | null): Coord[] =>
     for (const [x, y] of ORTHOGONAL_MOVES) {
         const to = { x: piece.x + x, y: piece.y + y };
         if (!jumpOnly) {
-            if (getPieceAtCoord(board, to) === EMPTY) {
+            if (getPieceTypeAtCoord(board, to) === EMPTY) {
                 toCoords.push(to);
             }
         }
         // Foxes can jump over a GOOSE into EMPTY
         if (isFox) {
             const jumpTo = { x: piece.x + x * 2, y: piece.y + y * 2 };
-            if (getPieceAtCoord(board, to) === GOOSE && getPieceAtCoord(board, jumpTo) === EMPTY) {
+            if (getPieceTypeAtCoord(board, to) === GOOSE && getPieceTypeAtCoord(board, jumpTo) === EMPTY) {
                 toCoords.push(jumpTo);
             }
         }
@@ -193,14 +123,14 @@ const getValidToCoords = (gameState: GameState, piece: Coord | null): Coord[] =>
         for (const [x, y] of DIAGONAL_MOVES) {
             const to = { x: piece.x + x, y: piece.y + y };
             if (!jumpOnly) {
-                if (getPieceAtCoord(board, to) === EMPTY) {
+                if (getPieceTypeAtCoord(board, to) === EMPTY) {
                     toCoords.push(to);
                 }
             }
             // Foxes can jump over GOOSE into EMPTY
             if (isFox) {
                 const jumpTo = { x: piece.x + x * 2, y: piece.y + y * 2 };
-                if (getPieceAtCoord(board, to) === GOOSE && getPieceAtCoord(board, jumpTo) === EMPTY) {
+                if (getPieceTypeAtCoord(board, to) === GOOSE && getPieceTypeAtCoord(board, jumpTo) === EMPTY) {
                     toCoords.push(jumpTo);
                 }
             }
@@ -298,30 +228,29 @@ const evaluate = (gameState: GameState, perspective: Side): number => {
 }
 
 class Game {
-    gameState: GameState;
-    players: Player[];
+    gameState: GameState = {
+        board: initBoard(),
+        turn: Side.FOX,
+        jumpOnly: false,
+        winner: null,
+        moves: [],
+        selectedPiece: { x: 3, y: 3 }, // The fox's starting position
+    };
+    players: Player[] = [];
     mode: number;
     constructor(mode: number) {
         this.mode = mode;
-        this.gameState = {
-            board: copyBoard(BOARD_START),
-            turn: Side.FOX,
-            jumpOnly: false,
-            winner: null,
-            moves: [],
-            selectedPiece: { x: 3, y: 3 }, // The fox's starting position
-        };
-        this.players = [];
-        this.reset()
+        this.reset();
     }
 
     addPlayer(name: string, side: Side, type: 'player' | 'cpu') {
+        console.log(`adding player: ${name} ${side} ${type}`);
         this.players.push(new Player(name, side, type));
     }
 
     reset() {
         this.gameState = {
-            board: copyBoard(BOARD_START),
+            board: initBoard(),
             turn: Side.FOX,
             jumpOnly: false,
             winner: null,
@@ -346,7 +275,7 @@ class Game {
         // When empty, only click pieces for the current turn
         // When selected, only click an empty space or the selected piece
         if (!this.gameState.selectedPiece) {
-            if (getPieceAtCoord(this.gameState.board, coord) !== this.gameState.turn) {
+            if (getPieceTypeAtCoord(this.gameState.board, coord) !== this.gameState.turn) {
                 console.log(`Invalid move: ${coord} is not ${this.gameState.turn}`);
                 return
             }
@@ -362,7 +291,7 @@ class Game {
                     return
                 }
                 this.gameState.selectedPiece = null;
-            } else if (getPieceAtCoord(this.gameState.board, coord) === EMPTY) {
+            } else if (getPieceTypeAtCoord(this.gameState.board, coord) === EMPTY) {
                 this.move({ from: this.gameState.selectedPiece, to: coord });
             } else {
                 console.log(`Invalid move: ${coord} is not empty`);
@@ -407,13 +336,13 @@ class Game {
             return false;
         }
         // It must be the player's turn
-        if (this.gameState.turn !== getPieceAtCoord(this.gameState.board, from)) {
-            console.log(`Invalid move: ${getPieceAtCoord(this.gameState.board, from)} is not ${this.gameState.turn}`);
+        if (this.gameState.turn !== getPieceTypeAtCoord(this.gameState.board, from)) {
+            console.log(`Invalid move: ${getPieceTypeAtCoord(this.gameState.board, from)} is not ${this.gameState.turn}`);
             return false;
         }
         // The to must be EMPTY
-        if (getPieceAtCoord(this.gameState.board, to) !== EMPTY) {
-            console.log(`Invalid move: ${getPieceAtCoord(this.gameState.board, to)} is not empty`);
+        if (getPieceTypeAtCoord(this.gameState.board, to) !== EMPTY) {
+            console.log(`Invalid move: ${getPieceTypeAtCoord(this.gameState.board, to)} is not empty`);
             return false;
         }
 
@@ -435,7 +364,7 @@ class Game {
         this.gameState = makeMove(this.gameState, move);
         this.gameState.selectedPiece = null;
         this.gameState.moves.push(move);
-        printBoard(this.gameState.board);
+        console.log(boardToString(this.gameState.board));
         if (this.gameState.winner) {
             console.log(`${this.gameState.winner} wins!`);
         }
@@ -496,4 +425,4 @@ const getBestMove = (gameState: GameState, depth: number): Move | null => {
     return sample(bestMoves);
 }
 
-export { Game, printBoard, minimax, getBestMove, getValidToCoords };
+export { Game, minimax, getBestMove, getValidToCoords };

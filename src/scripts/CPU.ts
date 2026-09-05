@@ -1,4 +1,4 @@
-import { MOVE_EVENT, JUMP_EVENT, PASS_EVENT, GAME_START_EVENT, MOVE_EVENT, JUMP_EVENT, PASS_EVENT } from '../Types';
+import { MOVE_EVENT, PASS_EVENT, GAME_START_EVENT } from '../Types';
 import { Events } from './libraries/Events';
 import { Game, getBestMove } from './Game';
 import { sleep } from './Utils';
@@ -8,16 +8,15 @@ export class CPU {
     constructor(game: Game) {
         this.game = game;
         this.setupEvents();
-
     }
 
     async playNextMove() {
         const cpu = this.game.players.find(p => p.type === 'cpu');
+        // If it's not the cpu's turn, do nothing
         if (!cpu || this.game.gameState.turn !== cpu.side) {
             return;
         }
         await sleep(1000);
-        // If it's not the cpu's turn, do nothing
         const move = getBestMove(this.game.gameState, 3);
         if (move) {
             console.log(`CPU playing next move: ${JSON.stringify(move)}`);

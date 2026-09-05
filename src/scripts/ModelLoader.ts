@@ -66,10 +66,14 @@ const builtinShapes = {
 }
 
 // Uses W rather than THREE to create a model from a model array.
-export const loadModel = (modelName: keyof typeof models): string => {
+export const loadModel = (modelName: keyof typeof models, modelId?: string): string => {
     const modelArray = models[modelName]
+    if (!modelName || !modelArray) {
+        console.error('MODEL NAME OR MODEL ARRAY IS NULL')
+        throw new Error('MODEL NAME OR MODEL ARRAY IS NULL')
+    }
 
-    const parentName = `${String(modelName)}_${Math.random().toString(36).substring(2, 15)}`
+    const parentName = modelId || `${String(modelName)}_${Math.random().toString(36).substring(2, 15)}`
     W.group({ n: parentName, x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0 })
 
     modelArray.forEach((item: CubeDef, index: number) => {
