@@ -3,7 +3,7 @@ import type { Game } from "./Game";
 import { loadModel } from "./ModelLoader";
 import { GOOSE, FOX, WALL, MOVE_EVENT, PASS_EVENT, JUMP_EVENT, EMPTY, SELECT_EVENT } from "../Types";
 import type { Move, Coord } from "../Types";
-import { easeOutCubic, coordEquals } from "./Utils";
+import { easeOutCubic, coordEquals, sleep } from "./Utils";
 import { getValidToCoords } from "./Game";
 import { colorTexture } from "./Textures";
 import { COLORS } from "./Utils";
@@ -61,7 +61,7 @@ export class GameView {
         const board = this.game.gameState.board;
         const turn = this.game.gameState.turn;
         const selectedPiece = this.game.gameState.selectedPiece;
-        const validToCoords = getValidToCoords(this.game.gameState, selectedPiece);
+        const validToCoords = getValidToCoords(this.game.gameState, selectedPiece?.coord ?? null);
 
         // Initialize the board model
         if (!this.boardName) {
@@ -100,7 +100,7 @@ export class GameView {
                     onHoverEnd: isValidTo || isValidFrom ? onHoverEnd : null,
                     onSelectStart: isValidTo || isValidFrom ? (object) => {
                         this.game.clickCoord({ x: x, y: z });
-                    } : null
+                    } : null,
                 })
             }
         }
@@ -115,6 +115,7 @@ export class GameView {
             }
             if (!W.next[modelName]) {
                 loadModel(modelForType[cell.type] as keyof typeof models, cell.id);
+                W.move({ n: modelName, x: x * 4 - 12, z: y * 4 - 12 });
             }
             W.move({
                 n: modelName,
@@ -124,28 +125,36 @@ export class GameView {
                 selectable: cell.type !== WALL,
                 onSelectStart: (object) => {
                     this.game.clickCoord({ x: x, y: y });
-                }
+                },
             })
             // Update click handlers
             if (cell.type === GOOSE) {
                 W.move({
                     n: modelName,
-                    selectable: turn === GOOSE && !selectedPiece,
-                    onHoverStart: turn === GOOSE && !selectedPiece ? onHoverStart : null,
-                    onHoverEnd: turn === GOOSE && !selectedPiece ? onHoverEnd : null
+                    selectable: turn === GOOSE && selectedPiece === null,
+                    onHoverStart: turn === GOOSE && selectedPiece === null ? onHoverStart : null,
+                    onHoverEnd: turn === GOOSE && selectedPiece === null ? onHoverEnd : null
                 });
             } else if (cell.type === FOX) {
                 W.move({
                     n: modelName,
-                    selectable: turn === FOX && !selectedPiece,
-                    onHoverStart: turn === FOX && !selectedPiece ? onHoverStart : null,
-                    onHoverEnd: turn === FOX && !selectedPiece ? onHoverEnd : null
+                    selectable: turn === FOX && selectedPiece === null,
+                    onHoverStart: turn === FOX && selectedPiece === null ? onHoverStart : null,
+                    onHoverEnd: turn === FOX && selectedPiece === null ? onHoverEnd : null
                 });
             }
         });
     }
 
-    onMove(move: Move) {
+    async onMove(move: Move) {
+        const modelPiece = getPieceAtCoord(this.game.gameState.board, move.to);
+        if (!modelPiece || !modelPiece.id) {
+            console.error('Model piece not found', move.to);
+            return;
+        }
+        // Move the model to the new position
+        W.move({ n: modelPiece.id, x: move.to.x * 4 - 12, z: move.to.y * 4 - 12, a: 1000 });
+        await sleep(1000);
         this.render()
     }
     onPass() {
@@ -156,14 +165,11 @@ export class GameView {
         this.render()
     }
 
-    onJump(coord: Coord) {
-        const modelPiece = getPieceAtCoord(this.game.gameState.board, coord);
-        if (!modelPiece || !modelPiece.id) {
-            console.error('Model piece not found', coord);
-            return;
-        }
+    async onJump(pieceId: string) {
         // Send the model to the sky
-        W.move({ n: modelPiece.id, y: 30, a: 1000 });
+        console.log(`Sending ${pieceId} to the sky`);
+        W.move({ n: pieceId, y: 30, a: 1000 });
+        await sleep(1000);
         this.render()
     }
 

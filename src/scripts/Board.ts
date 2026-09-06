@@ -1,5 +1,6 @@
 import type { Coord, PieceType, Board, BoardPiece } from '../Types';
 import { EMPTY, GOOSE, FOX, WALL } from '../Types';
+import { coordEquals } from './Utils';
 
 const BOARD_WIDTH = 7;
 const BOARD_HEIGHT = 7;
@@ -31,6 +32,7 @@ const initBoard = (): Board => {
     for (let y = 0; y < BOARD_HEIGHT; y++) {
         for (let x = 0; x < BOARD_WIDTH; x++) {
             if (BOARD_START[y][x] === EMPTY) {
+                console.log(`Skipping empty space at ${x},${y}`);
                 continue;
             }
             board.push({ id: `${x}-${y}`, type: BOARD_START[y][x], coord: { x, y } });
@@ -109,21 +111,15 @@ const movePiece = (board: Board, from: Coord, to: Coord) => {
     if (!piece || piece.type === EMPTY) {
         throw new Error('No piece at from coord');
     }
-    if (!dest) {
-        throw new Error(`To coord ${JSON.stringify(to)} is not empty`);
+    if (dest && dest.type !== EMPTY) {
+        throw new Error(`To coord ${JSON.stringify(to)} is not empty: ${JSON.stringify(dest)}`);
     }
-    piece.coord = { ...to };
-    dest.coord = { ...from };
+    piece.coord = to;
     return newBoard;
 }
 
 const removePiece = (board: Board, coord: Coord) => {
-    const newBoard = copyBoard(board);
-    const piece = getPieceAtCoord(newBoard, coord);
-    if (piece) {
-        piece.coord = { x: -1, y: -1 };
-        piece.dead = true;
-    }
+    const newBoard = copyBoard(board).filter(piece => !coordEquals(piece.coord, coord));
     return newBoard;
 }
 
