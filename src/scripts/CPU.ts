@@ -1,9 +1,8 @@
 import { MOVE_EVENT, PASS_EVENT, GAME_START_EVENT, FOX, GOOSE } from '../Types';
 import { Events } from './libraries/Events';
-import { Game } from './Game';
-import { sleep } from './Utils';
-import { isWinningState, getValidMoves } from './Game';
-import { Side } from '../Types';
+import { Game, makeMove, isWinningState, getValidMoves, isJump, canMoveDiagonally } from './Game';
+import { sleep, sample } from './Utils';
+import { Side, Move } from '../Types';
 import { getPiecesByType } from './Board';
 import { GameState } from '../Types';
 

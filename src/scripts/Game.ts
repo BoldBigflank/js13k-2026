@@ -328,4 +328,4 @@ class Game {
     }
 }
 
-export { Game, getValidToCoords, getValidMoves, isWinningState };
+export { Game, getValidToCoords, getValidMoves, isWinningState, makeMove, isJump, canMoveDiagonally, isDiagonalMove };

@@ -168,7 +168,7 @@ export class GameView {
     async onJump(pieceId: string) {
         // Send the model to the sky
         console.log(`Sending ${pieceId} to the sky`);
-        W.move({ n: pieceId, y: 30, a: 1000 });
+        W.move({ n: pieceId, y: 30, a: 1000 }, 500);
         await sleep(1000);
         this.render()
     }
