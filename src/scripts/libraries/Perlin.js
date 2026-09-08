@@ -8,7 +8,7 @@
  * Attribution is appreciated.
  */
 
-import { lerp, fade } from '../Utils';
+import { lerp, fade } from '../Utils.ts';
 
 const PERMUTATION = Uint8Array.from([
     151, 160, 137, 91, 90, 15,

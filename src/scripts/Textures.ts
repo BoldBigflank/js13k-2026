@@ -1,5 +1,5 @@
-import { octavePerlin2 } from "./libraries/Perlin";
-import { COLORS, colorLerp } from "./Utils";
+import { octavePerlin2 } from "./libraries/Perlin.js";
+import { COLORS, colorLerp, RAINBOW_COLORS } from "./Utils.ts";
 
 // W caches uploaded GL textures by canvas.id (see W.textures / W.setState), so every
 // generated texture canvas needs a unique id or later textures will silently reuse
@@ -175,8 +175,8 @@ export const rainbowTexture = (canvasSize = 1024) => {
   ctx.imageSmoothingEnabled = false;
   const gradient = ctx.createLinearGradient(0, 0, 0, canvasSize);
   let i = 0;
-  for (const color of Object.values(COLORS)) {
-    gradient.addColorStop(i / Object.values(COLORS).length, color);
+  for (const color of Object.values(RAINBOW_COLORS)) {
+    gradient.addColorStop(i / Object.values(RAINBOW_COLORS).length, color);
     i++;
   }
   ctx.fillStyle = gradient;

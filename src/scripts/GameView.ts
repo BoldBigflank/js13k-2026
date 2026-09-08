@@ -3,7 +3,7 @@ import type { Game } from "./Game";
 import { loadModel } from "./ModelLoader";
 import { GOOSE, FOX, WALL, MOVE_EVENT, PASS_EVENT, JUMP_EVENT, EMPTY, SELECT_EVENT } from "../Types";
 import type { Move, Coord } from "../Types";
-import { easeOutCubic, coordEquals, sleep } from "./Utils";
+import { easeOutCubic, coordEquals, sleep, lookAt } from "./Utils";
 import { getValidToCoords } from "./Game";
 import { colorTexture } from "./Textures";
 import { COLORS } from "./Utils";
@@ -153,6 +153,8 @@ export class GameView {
             return;
         }
         // Move the model to the new position
+        const angle = 90 - lookAt(move.from, move.to);
+        W.move({ n: modelPiece.id, ry: angle })
         W.move({ n: modelPiece.id, x: move.to.x * 4 - 12, z: move.to.y * 4 - 12, a: 1000 });
         await sleep(1000);
         this.render()

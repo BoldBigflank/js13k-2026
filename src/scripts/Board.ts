@@ -32,7 +32,6 @@ const initBoard = (): Board => {
     for (let y = 0; y < BOARD_HEIGHT; y++) {
         for (let x = 0; x < BOARD_WIDTH; x++) {
             if (BOARD_START[y][x] === EMPTY) {
-                console.log(`Skipping empty space at ${x},${y}`);
                 continue;
             }
             board.push({ id: `${x}-${y}`, type: BOARD_START[y][x], coord: { x, y } });
