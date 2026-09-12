@@ -460,16 +460,6 @@ import './w';
       object.m.inverse().toFloat32Array(),
     );
 
-    if (
-      W.plugin.debug &&
-      !model &&
-      !["camera", "light", "group"].includes(object.type)
-    ) {
-      console.warn(
-        `tried to render model "${object.type}", which does not exist!`,
-      );
-    }
-
     if (model) {
       if (model && !model.verticesBuffer) {
         model.customNormals = !!model.normals;
@@ -483,8 +473,6 @@ import './w';
           new Float32Array(model.vertices),
           35044 /* STATIC_DRAW */,
         );
-
-        if (!model.normals && W.plugin.smooth) W.smooth(model);
 
         if (model.normals) {
           W.gl.bindBuffer(

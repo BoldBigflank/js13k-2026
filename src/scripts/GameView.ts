@@ -77,7 +77,7 @@ export class GameView {
         if (!this.floorName) {
             W.plane({
                 n: 'floor',
-                g: this.parentName, x: 0, y: -1, rx: -90, w: 200, h: 200, ts: 2, t: perlinTexture(), b: '00f', mix: 0.5, selectable: false,
+                g: this.parentName, x: 0, y: -1, rx: -90, w: 200, h: 200, ts: 2, t: perlinTexture(), b: 'oc3', mix: 0.5, selectable: false,
             });        
         }
 
@@ -161,7 +161,6 @@ export class GameView {
     async onMove(move: Move) {
         const modelPiece = getPieceAtCoord(this.game.gameState.board, move.to);
         if (!modelPiece || !modelPiece.id) {
-            console.error('Model piece not found', move.to);
             return;
         }
         // Move the model to the new position
@@ -184,7 +183,6 @@ export class GameView {
 
     async onJump(pieceId: string) {
         // Send the model to the sky
-        console.log(`Sending ${pieceId} to the sky`);
         W.move({ n: pieceId, y: 30, a: 1000 }, 500);
         this.ui.update();
         await sleep(1000);
@@ -196,12 +194,5 @@ export class GameView {
         Events.Instance.on(PASS_EVENT, this.onPass.bind(this));
         Events.Instance.on(SELECT_EVENT, this.onSelectCoord.bind(this));
         Events.Instance.on(JUMP_EVENT, this.onJump.bind(this));
-    }
-
-    teardownEvents() {
-        Events.Instance.off(MOVE_EVENT, this.onMove.bind(this));
-        Events.Instance.off(PASS_EVENT, this.onPass.bind(this));
-        Events.Instance.off(SELECT_EVENT, this.onSelectCoord.bind(this));
-        Events.Instance.off(JUMP_EVENT, this.onJump.bind(this));
     }
 }

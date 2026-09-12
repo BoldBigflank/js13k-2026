@@ -4,7 +4,6 @@ import zzfx from './scripts/libraries/zzfxMicro.min.js';
 import { sleep } from "./scripts/Utils";
 
 const playSound = async (sound: string, delay: number = 0) => {
-    console.log('playing sound', sound);
     await sleep(delay);
     if (sound == 'move') {
         zzfx(...[,,198,,.04,.08,,,,14,,,,,,,,.98,.03]);
@@ -17,7 +16,6 @@ const playSound = async (sound: string, delay: number = 0) => {
     }
 }
 export const initSFX = () => {
-    console.log('initSFX');
     Events.Instance.on(MOVE_EVENT, (name: string) => {
         playSound('move');
     });

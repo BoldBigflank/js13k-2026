@@ -1,14 +1,10 @@
 import { Side } from "../Types";
 
 class Player {
-    name: string;
-    uuid: string;
     type: 'player' | 'cpu';
     side: Side;
 
-    constructor(name: string, side: Side, type: 'player' | 'cpu') {
-        this.name = name;
-        this.uuid = crypto.randomUUID();
+    constructor(side: Side, type: 'player' | 'cpu') {
         this.side = side;
         this.type = type;
     }

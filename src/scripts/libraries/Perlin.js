@@ -41,11 +41,6 @@ function dot2(g, x, y) {
     return GRAD3[i] * x + GRAD3[i + 1] * y;
 }
 
-function dot3(g, x, y, z) {
-    const i = g * 3;
-    return GRAD3[i] * x + GRAD3[i + 1] * y + GRAD3[i + 2] * z;
-}
-
 /** Reseed the permutation table. Supports 2^16 distinct seeds. */
 export function seed(rawSeed) {
     let s = rawSeed;
@@ -100,36 +95,6 @@ export function octavePerlin2(x, y, scale, octaves, persistence) {
     return (total / maxValue + 1) / 2;
 }
 
-export function perlin3(x, y, z) {
-    let xi = Math.floor(x);
-    let yi = Math.floor(y);
-    let zi = Math.floor(z);
-    x -= xi;
-    y -= yi;
-    z -= zi;
-    xi &= 255;
-    yi &= 255;
-    zi &= 255;
-
-    const n000 = dot3(gradP[xi + perm[yi + perm[zi]]], x, y, z);
-    const n001 = dot3(gradP[xi + perm[yi + perm[zi + 1]]], x, y, z - 1);
-    const n010 = dot3(gradP[xi + perm[yi + 1 + perm[zi]]], x, y - 1, z);
-    const n011 = dot3(gradP[xi + perm[yi + 1 + perm[zi + 1]]], x, y - 1, z - 1);
-    const n100 = dot3(gradP[xi + 1 + perm[yi + perm[zi]]], x - 1, y, z);
-    const n101 = dot3(gradP[xi + 1 + perm[yi + perm[zi + 1]]], x - 1, y, z - 1);
-    const n110 = dot3(gradP[xi + 1 + perm[yi + 1 + perm[zi]]], x - 1, y - 1, z);
-    const n111 = dot3(gradP[xi + 1 + perm[yi + 1 + perm[zi + 1]]], x - 1, y - 1, z - 1);
-
-    const u = fade(x);
-    const v = fade(y);
-    const w = fade(z);
-    return lerp(
-        lerp(lerp(n000, n100, u), lerp(n001, n101, u), w),
-        lerp(lerp(n010, n110, u), lerp(n011, n111, u), w),
-        v,
-    );
-}
-
 seed(0);
 
-export default { seed, perlin2, perlin3, octavePerlin2 };
+export default { seed, perlin2, octavePerlin2 };

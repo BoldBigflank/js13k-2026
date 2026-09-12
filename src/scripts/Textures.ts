@@ -24,7 +24,7 @@ export const textTexture = (canvasSize: number, lines: string[]) => {
   const canvas = uniqueCanvas(canvasSize);
   const ctx = canvas.getContext('2d');
   if (!ctx) {
-    throw new Error('Failed to get context');
+    throw new Error();
   }
 
   ctx.scale(1, canvasRatio);
@@ -58,7 +58,7 @@ export const perlinTexture = (
   const c = uniqueCanvas(size);
   const ctx = c.getContext("2d");
   if (!ctx) {
-    throw new Error("Failed to get context");
+    throw new Error();
   }
   ctx.imageSmoothingEnabled = false;
   for (let y = 0; y < size; y++) {
@@ -82,7 +82,7 @@ export const rainbowTexture = (canvasSize = 1024) => {
   const c = uniqueCanvas(canvasSize);
   const ctx = c.getContext("2d");
   if (!ctx) {
-    throw new Error("Failed to get context");
+    throw new Error();
   }
   ctx.imageSmoothingEnabled = false;
   const gradient = ctx.createLinearGradient(0, 0, 0, canvasSize);
@@ -105,7 +105,7 @@ export const colorTexture = (canvasSize = 1024, color = COLORS.RED) => {
   const c = uniqueCanvas(canvasSize);
   const ctx = c.getContext("2d");
   if (!ctx) {
-    throw new Error("Failed to get context");
+    throw new Error();
   }
   ctx.imageSmoothingEnabled = false;
   ctx.fillStyle = color;

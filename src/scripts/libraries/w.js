@@ -71,8 +71,7 @@ window.W = {
     // Compile the Vertex shader and attach it to the program
     W.gl.compileShader(shader);
     W.gl.attachShader(W.program, shader);
-    if (W.plugin.debug) console.log('vertex shader:', W.gl.getShaderInfoLog(shader) || 'OK');
-
+    
     // Create a Fragment shader
     // (This GLSL program is called for every fragment (pixel) of the scene)
     W.gl.shaderSource(
@@ -106,13 +105,11 @@ window.W = {
     // Compile the Fragment shader and attach it to the program
     W.gl.compileShader(shader);
     W.gl.attachShader(W.program, shader);
-    if (W.plugin.debug) console.log('fragment shader:', W.gl.getShaderInfoLog(shader) || 'OK');
-
+    
     // Compile the program
     W.gl.linkProgram(W.program);
     W.gl.useProgram(W.program);
-    if (W.plugin.debug) console.log('program:', W.gl.getProgramInfoLog(W.program) || 'OK');
-
+    
     // Set the scene's background color (RGBA)
     W.gl.clearColor(1, 1, 1, 1);
 
@@ -292,11 +289,6 @@ window.W = {
       object.m.inverse().toFloat32Array(),
     );
 
-    // Show warning if model doesn't exist (debug only)
-    if (W.plugin.debug && !model && !['camera', 'light', 'group'].includes(object.type)) {
-      console.warn(`tried to render model "${object.type}", which does not exist!`);
-    }
-
     // Don't render invisible items (camera, light, groups, camera's parent)
     if (model) {
 
@@ -307,9 +299,6 @@ window.W = {
         // Build the model's vertices buffer
         W.gl.bindBuffer(34962 /* ARRAY_BUFFER */, model.verticesBuffer = W.gl.createBuffer());
         W.gl.bufferData(34962 /* ARRAY_BUFFER */, new Float32Array(model.vertices), 35044 /* STATIC_DRAW */);
-
-        // Compute smooth normals if they don't exist yet (optional)
-        if (!model.normals && W.plugin.smooth) W.smooth(model);
 
         // Make a buffer from the smooth/custom normals (if any)
         if (model.normals) {
@@ -469,54 +458,9 @@ window.W = {
 // See "build.js" for which plugins are enabled in which verions.
 if (!W.built) {
   W.plugin = {
-    debug: true,
-    smooth: true,
     builtinShapes: true,
   };
 }
-
-
-// Smooth normals computation plug-in (optional)
-// =============================================
-
-if (W.plugin.smooth) {
-  W.smooth = (model, dict = {}, vertices = [], vertexCount, i = 0, j, A, B, C, Ai, Bi, Ci, AB, BC, normal) => {
-
-    // Prepare smooth normals array
-    model.normals = [];
-
-    // Fill vertices array: [[x,y,z],[x,y,z]...]
-    for (; i < model.vertices.length; i += 3) {
-      vertices.push(model.vertices.slice(i, i + 3));
-    }
-
-    // Get number of times to iterate
-    vertexCount = (model.indices || vertices).length;
-
-    // Iterate twice on the vertices
-    // - 1st pass: compute normals of each triangle and accumulate them for each vertex
-    // - 2nd pass: save the final smooth normals values
-    for (i = 0; i < vertexCount * 2; i += 3) {
-      j = i % vertexCount;
-
-      A = vertices[Ai = model.indices?.[j] ?? j];
-      B = vertices[Bi = model.indices?.[j + 1] ?? j + 1];
-      C = vertices[Ci = model.indices?.[j + 2] ?? j + 2];
-
-      AB = [B[0] - A[0], B[1] - A[1], B[2] - A[2]];
-      BC = [C[0] - B[0], C[1] - B[1], C[2] - B[2]];
-      normal = i > j ? [0, 0, 0] : [AB[1] * BC[2] - AB[2] * BC[1], AB[2] * BC[0] - AB[0] * BC[2], AB[0] * BC[1] - AB[1] * BC[0]];
-
-      dict[j = A.join()] ??= [0, 0, 0];
-      model.normals[Ai] = dict[j] = dict[j].map((a, i) => a + normal[i]);
-      dict[j = B.join()] ??= [0, 0, 0];
-      model.normals[Bi] = dict[j] = dict[j].map((a, i) => a + normal[i]);
-      dict[j = C.join()] ??= [0, 0, 0];
-      model.normals[Ci] = dict[j] = dict[j].map((a, i) => a + normal[i]);
-    }
-  };
-}
-
 
 // 3D models
 // =========

@@ -1,7 +1,7 @@
 import { coordEquals } from './Utils';
 import { Player } from './Player';
 import { Events } from './libraries/Events';
-import { copyBoard, getPieceTypeAtCoord, getPiecesByType, getPieceCount, initBoard, movePiece, removePiece, boardToString, getPieceAtCoord } from './Board';
+import { copyBoard, getPieceTypeAtCoord, getPiecesByType, getPieceCount, initBoard, movePiece, removePiece, getPieceAtCoord } from './Board';
 import type { Coord, Move, GameState } from '../Types';
 import { Side, EMPTY, GOOSE, MOVE_EVENT, PASS_EVENT, JUMP_EVENT, SELECT_EVENT, GAME_OVER_EVENT } from '../Types';
 
@@ -58,7 +58,6 @@ const makeMove = (gameState: GameState, move: Move): GameState => {
     // Check win conditions
     if (isWinningState(newGameState)) {
         newGameState.winner = newGameState.turn;
-        Events.Instance.emit(GAME_OVER_EVENT);
         return newGameState;
     }
 
@@ -84,7 +83,11 @@ const getValidToCoords = (gameState: GameState, piece: Coord | null): Coord[] =>
     const { board, turn, jumpOnly } = gameState;
     const isFox = turn === Side.FOX;
     const toCoords: Coord[] = [];
-    for (const [x, y] of ORTHOGONAL_MOVES) {
+    const moves = [...ORTHOGONAL_MOVES];
+    if (canMoveDiagonally(piece)) {
+        moves.push(...DIAGONAL_MOVES);
+    }
+    for (const [x, y] of moves) {
         const to = { x: piece.x + x, y: piece.y + y };
         if (!jumpOnly) {
             if (getPieceTypeAtCoord(board, to) === EMPTY) {
@@ -96,23 +99,6 @@ const getValidToCoords = (gameState: GameState, piece: Coord | null): Coord[] =>
             const jumpTo = { x: piece.x + x * 2, y: piece.y + y * 2 };
             if (getPieceTypeAtCoord(board, to) === GOOSE && getPieceTypeAtCoord(board, jumpTo) === EMPTY) {
                 toCoords.push(jumpTo);
-            }
-        }
-    }
-    if (canMoveDiagonally(piece)) {
-        for (const [x, y] of DIAGONAL_MOVES) {
-            const to = { x: piece.x + x, y: piece.y + y };
-            if (!jumpOnly) {
-                if (getPieceTypeAtCoord(board, to) === EMPTY) {
-                    toCoords.push(to);
-                }
-            }
-            // Foxes can jump over GOOSE into EMPTY
-            if (isFox) {
-                const jumpTo = { x: piece.x + x * 2, y: piece.y + y * 2 };
-                if (getPieceTypeAtCoord(board, to) === GOOSE && getPieceTypeAtCoord(board, jumpTo) === EMPTY) {
-                    toCoords.push(jumpTo);
-                }
             }
         }
     }
@@ -174,9 +160,8 @@ class Game {
         this.reset();
     }
 
-    addPlayer(name: string, side: Side, type: 'player' | 'cpu') {
-        console.log(`adding player: ${name} ${side} ${type}`);
-        this.players.push(new Player(name, side, type));
+    addPlayer(side: Side, type: 'player' | 'cpu') {
+        this.players.push(new Player(side, type));
     }
 
     reset() {
@@ -190,34 +175,31 @@ class Game {
         };
         this.players = [];
         if (this.mode === 0) {
-            this.addPlayer('Player 1', Side.FOX, 'player');
-            this.addPlayer('CPU', Side.GOOSE, 'cpu');
+            this.addPlayer(Side.FOX, 'player');
+            this.addPlayer(Side.GOOSE, 'cpu');
         } else if (this.mode === 1) {
-            this.addPlayer('CPU', Side.FOX, 'cpu');
-            this.addPlayer('Player 1', Side.GOOSE, 'player');
+            this.addPlayer(Side.FOX, 'cpu');
+            this.addPlayer(Side.GOOSE, 'player');
         } else if (this.mode === 2) {
-            this.addPlayer('Player 1', Side.FOX, 'player');
-            this.addPlayer('Player 2', Side.GOOSE, 'player');
+            this.addPlayer(Side.FOX, 'player');
+            this.addPlayer(Side.GOOSE, 'player');
         }
         // Let the fox start
         this.gameState.selectedPiece = getPieceAtCoord(this.gameState.board, { x: 3, y: 3 });
     }
 
     clickCoord(coord: Coord): undefined {
-        console.log(`clickCoord: ${JSON.stringify(coord)}`);
         // When empty, only click pieces for the current turn
         // When selected, only click an empty space or the selected piece
         if (!this.gameState.selectedPiece) {
             const selectedPiece = getPieceAtCoord(this.gameState.board, coord);
             if (!selectedPiece || selectedPiece.type !== this.gameState.turn) {
-                console.log(`Invalid move: ${JSON.stringify(coord)} is not ${this.gameState.turn}`);
                 return
             }
             this.gameState.selectedPiece = selectedPiece;
             Events.Instance.emit(SELECT_EVENT, selectedPiece.id);
         } else {
             if (coordEquals(this.gameState.selectedPiece.coord, coord)) {
-                console.log(`unselecting piece`);
                 if (this.gameState.turn === Side.FOX) {
                     if (this.gameState.jumpOnly) {
                         this.pass();
@@ -229,7 +211,6 @@ class Game {
             } else if (getPieceTypeAtCoord(this.gameState.board, coord) === EMPTY) {
                 this.move({ from: this.gameState.selectedPiece.coord, to: coord });
             } else {
-                console.log(`Invalid move: ${JSON.stringify(coord)} is not empty`);
                 return
             }
         }
@@ -238,20 +219,16 @@ class Game {
     pass() {
         // The game must not be over
         if (this.gameState.winner !== null) {
-            console.log(`Invalid move: game is over`);
             return false;
         }
         // It must be the 🦊's turn
         if (this.gameState.turn !== Side.FOX) {
-            console.log(`Invalid move: ${this.gameState.turn} cannot pass`);
             return false;
         }
         // The move must be valid
         if (!isValidMove(this.gameState, { from: { x: 0, y: 0 }, to: { x: 0, y: 0 }, pass: true })) {
-            console.log(`Invalid move: ${this.gameState.turn} cannot pass`);
             return false;
         }
-        console.log(`${this.gameState.turn} passed`);
         this.gameState.moves.push({ from: { x: 0, y: 0 }, to: { x: 0, y: 0 }, pass: true });
         this.gameState.turn = Side.GOOSE;
         this.gameState.jumpOnly = false;
@@ -267,31 +244,26 @@ class Game {
         // Validate the move
         // The game must not be over
         if (this.gameState.winner !== null) {
-            console.log(`Invalid move: game is over`);
             return false;
         }
         // It must be the player's turn
         if (this.gameState.turn !== getPieceTypeAtCoord(this.gameState.board, from)) {
-            console.log(`Invalid move: ${getPieceTypeAtCoord(this.gameState.board, from)} is not ${this.gameState.turn}`);
             return false;
         }
         // The to must be EMPTY
         if (getPieceTypeAtCoord(this.gameState.board, to) !== EMPTY) {
-            console.log(`Invalid move: ${JSON.stringify(to)} is not empty`);
             return false;
         }
 
         // Diagonal moves are only allowed on certain spaces
         if (isDiagonalMove(move)) {
             if (!canMoveDiagonally(from)) {
-                console.log(`Invalid move: ${from} is not allowed diagonals`);
                 return false;
             }
         }
 
         // The move must be valid
         if (!isValidMove(this.gameState, move)) {
-            console.log(`Invalid move: ${JSON.stringify(move)} is not valid`);
             return false;
         }
 
@@ -314,9 +286,8 @@ class Game {
         this.gameState = makeMove(this.gameState, move);
         this.gameState.selectedPiece = null;
         this.gameState.moves.push(move);
-        console.log(boardToString(this.gameState.board));
         if (this.gameState.winner) {
-            console.log(`${this.gameState.winner} wins!`);
+            Events.Instance.emit(GAME_OVER_EVENT, this.gameState.winner);
         }
         Events.Instance.emit(MOVE_EVENT, move);
         if (jumpedPieceId) {

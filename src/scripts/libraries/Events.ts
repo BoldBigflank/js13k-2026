@@ -67,21 +67,5 @@ export class Events {
     public emit(event: number, ...args: any[]): void {
       (this._callbacks[event] || []).forEach((fn) => fn(...args));
     }
-  
-    /**
-     * Reset all callbacks (expose for testing)
-     */
-    public _reset(): void {
-      Object.keys(this._callbacks).forEach((key) => {
-        delete this._callbacks[key];
-      });
-    }
-  
-    /**
-     * Get all callbacks (expose for testing)
-     */
-    public getCallbacks(): { [key: string]: Function[] } {
-      return this._callbacks;
-    }
   }
   

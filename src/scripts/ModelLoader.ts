@@ -56,21 +56,10 @@ const expandCubeDef = (item: CubeDef): CubeDef => {
     ]
 }
 
-const builtinShapes = {
-    'c': W.cube,
-    'p': W.plane,
-    'b': W.billboard,
-    'py': W.pyramid,
-    's': W.sphere,
-    'cy': W.cylinder,
-}
-
-// Uses W rather than THREE to create a model from a model array.
 export const loadModel = (modelName: keyof typeof models, modelId?: string): string => {
     const modelArray = models[modelName]
     if (!modelName || !modelArray) {
-        console.error('MODEL NAME OR MODEL ARRAY IS NULL')
-        throw new Error('MODEL NAME OR MODEL ARRAY IS NULL')
+        return ''
     }
 
     const parentName = modelId || `${String(modelName)}_${Math.random().toString(36).substring(2, 15)}`
@@ -78,7 +67,6 @@ export const loadModel = (modelName: keyof typeof models, modelId?: string): str
 
     modelArray.forEach((item: CubeDef, index: number) => {
         if (item === null) {
-            console.error('ITEM IS NULL')
             return
         }
         const [shape, name, w, h, d, x, y, z, rx, ry, rz, oX, oY, oZ, textureIndex] = expandCubeDef(item)
@@ -93,9 +81,8 @@ export const loadModel = (modelName: keyof typeof models, modelId?: string): str
             const prefabName = loadModel(nestedName)
             // Keep an eye on rotation, there might be something different between Blockbench and W.
             W.move({ n: prefabName, g: parentName, x, y, z, rx: -rx, ry, rz })
-        } else if (Object.keys(builtinShapes).includes(shape)) {
-            const builtinShape = builtinShapes[shape as keyof typeof builtinShapes]
-            builtinShape(settings)
+        } else if (shape == 'c') {
+            W.cube(settings)
         }
     })
     return parentName

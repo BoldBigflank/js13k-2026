@@ -9,16 +9,19 @@ type Move = {
     pass?: boolean;
 };
 
+// // Helpers
+// const EMPTY = "🟩";
+// const GOOSE = "🪿";
+// const FOX = "🦊";
+// const WALL = "🟫";
 // Helpers
-const EMPTY = "🟩";
-const GOOSE = "🪿";
-const FOX = "🦊";
-const WALL = "🟫";
+const EMPTY = 1;
+const GOOSE = 2;
+const FOX = 3;
+const WALL = 4;
 
-enum Side {
-    GOOSE = "🪿",
-    FOX = "🦊"
-}
+const Side = { GOOSE, FOX } as const;
+type Side = (typeof Side)[keyof typeof Side];
 
 type PieceType = typeof EMPTY | typeof GOOSE | typeof FOX | typeof WALL;
 // type Board = Piece[][];

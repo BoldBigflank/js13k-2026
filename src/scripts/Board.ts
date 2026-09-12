@@ -57,26 +57,20 @@ const copyBoard = (board: Board): Board => {
 }
 
 const getPieceAtCoord = (board: Board, coord: Coord, xOffset: number = 0, yOffset: number = 0): BoardPiece => {
-    try {
-        if (
-            coord.x + xOffset < 0 ||
-            coord.x + xOffset >= BOARD_WIDTH ||
-            coord.y + yOffset < 0 ||
-            coord.y + yOffset >= BOARD_HEIGHT
-        ) {
-            return { type: WALL, coord: { x: coord.x + xOffset, y: coord.y + yOffset }, id: `${coord.x + xOffset}-${coord.y + yOffset}` }
-        }
-        const piece = board.find(piece => piece.coord.x === coord.x + xOffset && piece.coord.y === coord.y + yOffset);
-        if (!piece) {
-            // It's an empty space
-            return { type: EMPTY, coord: { x: coord.x + xOffset, y: coord.y + yOffset }, id: `${coord.x + xOffset}-${coord.y + yOffset}` }
-        }
-        return piece;
-    } catch (error) {
-        console.error(`Error getting piece at coord: ${coord} + (${xOffset},${yOffset})`);
-        console.error(error);
-        throw error;
+    if (
+        coord.x + xOffset < 0 ||
+        coord.x + xOffset >= BOARD_WIDTH ||
+        coord.y + yOffset < 0 ||
+        coord.y + yOffset >= BOARD_HEIGHT
+    ) {
+        return { type: WALL, coord: { x: coord.x + xOffset, y: coord.y + yOffset }, id: `${coord.x + xOffset}-${coord.y + yOffset}` }
     }
+    const piece = board.find(piece => piece.coord.x === coord.x + xOffset && piece.coord.y === coord.y + yOffset);
+    if (!piece) {
+        // It's an empty space
+        return { type: EMPTY, coord: { x: coord.x + xOffset, y: coord.y + yOffset }, id: `${coord.x + xOffset}-${coord.y + yOffset}` }
+    }
+    return piece;
 }
 
 const getPieceTypeAtCoord = (board: Board, coord: Coord, xOffset: number = 0, yOffset: number = 0): PieceType => {
@@ -111,7 +105,7 @@ const movePiece = (board: Board, from: Coord, to: Coord) => {
         throw new Error('No piece at from coord');
     }
     if (dest && dest.type !== EMPTY) {
-        throw new Error(`To coord ${JSON.stringify(to)} is not empty: ${JSON.stringify(dest)}`);
+        return false
     }
     piece.coord = to;
     return newBoard;

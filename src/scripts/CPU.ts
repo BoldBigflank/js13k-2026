@@ -113,10 +113,7 @@ export class CPU {
         await sleep(1000);
         const move = getBestMove(this.game.gameState, 3);
         if (move) {
-            console.log(`CPU playing next move: ${JSON.stringify(move)}`);
             this.game.move(move);
-        } else {
-            console.log(`CPU could not find a best move`);
         }
     }
 
@@ -124,12 +121,6 @@ export class CPU {
         Events.Instance.on(MOVE_EVENT, async () => await this.playNextMove());
         Events.Instance.on(PASS_EVENT, async () => await this.playNextMove());
         Events.Instance.on(GAME_START_EVENT, async () => await this.playNextMove());
-    }
-
-    teardownEvents() {
-        Events.Instance.off(MOVE_EVENT, this.playNextMove.bind(this));
-        Events.Instance.off(PASS_EVENT, this.playNextMove.bind(this));
-        Events.Instance.off(GAME_START_EVENT, this.playNextMove.bind(this));
     }
 }
 
