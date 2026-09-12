@@ -3,7 +3,7 @@ import { Player } from './Player';
 import { Events } from './libraries/Events';
 import { copyBoard, getPieceTypeAtCoord, getPiecesByType, getPieceCount, initBoard, movePiece, removePiece, boardToString, getPieceAtCoord } from './Board';
 import type { Coord, Move, GameState } from '../Types';
-import { Side, EMPTY, GOOSE, MOVE_EVENT, PASS_EVENT, JUMP_EVENT, SELECT_EVENT } from '../Types';
+import { Side, EMPTY, GOOSE, MOVE_EVENT, PASS_EVENT, JUMP_EVENT, SELECT_EVENT, GAME_OVER_EVENT } from '../Types';
 
 const ORTHOGONAL_MOVES = [[-1, 0], [1, 0], [0, -1], [0, 1]];
 const DIAGONAL_MOVES = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
@@ -58,6 +58,7 @@ const makeMove = (gameState: GameState, move: Move): GameState => {
     // Check win conditions
     if (isWinningState(newGameState)) {
         newGameState.winner = newGameState.turn;
+        Events.Instance.emit(GAME_OVER_EVENT);
         return newGameState;
     }
 

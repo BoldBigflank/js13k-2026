@@ -5,10 +5,11 @@ import { GOOSE, FOX, WALL, MOVE_EVENT, PASS_EVENT, JUMP_EVENT, EMPTY, SELECT_EVE
 import type { Move, Coord } from "../Types";
 import { easeOutCubic, coordEquals, sleep, lookAt } from "./Utils";
 import { getValidToCoords } from "./Game";
-import { colorTexture } from "./Textures";
+import { colorTexture, perlinTexture } from "./Textures";
 import { COLORS } from "./Utils";
 import { BOARD_HEIGHT, BOARD_WIDTH, getPieceAtCoord } from "./Board";
 import { models } from "../models/js13k-2026";
+import { UI } from "./UI";
 
 // Hover animations
 // scale jiggle
@@ -39,14 +40,18 @@ const blueTexture = colorTexture(1024, COLORS.BLUE);
 
 export class GameView {
     private game: Game;
+    private ui: UI;
     private tileModels: (string | null)[][] = [];
     private boardName: string | null = null;
     private parentName: string | null = null;
+    private floorName: string | null = null;
 
     constructor(game: Game) {
         this.game = game;
         this.parentName = `game_${Math.random().toString(36).substring(2, 15)}`;
-        W.group({ n: this.parentName, x: 0, y: 0, z: -16, rx: 0, ry: 0, rz: 0 });
+        W.group({ n: this.parentName, x: 0, y: -12, z: -16, rx: 0, ry: 0, rz: 0 });
+        this.ui = new UI(game);
+        this.ui.update();
         this.setupEvents();
     }
 
@@ -67,6 +72,13 @@ export class GameView {
         if (!this.boardName) {
             this.boardName = loadModel('board') as string;
             W.move({ n: this.boardName, g: this.parentName, x: 0, y: 0, z: 0 });
+        }
+        
+        if (!this.floorName) {
+            W.plane({
+                n: 'floor',
+                g: this.parentName, x: 0, y: -1, rx: -90, w: 200, h: 200, ts: 2, t: perlinTexture(), b: '00f', mix: 0.5, selectable: false,
+            });        
         }
 
         // Initialize the tile models
@@ -156,14 +168,17 @@ export class GameView {
         const angle = 90 - lookAt(move.from, move.to);
         W.move({ n: modelPiece.id, ry: angle })
         W.move({ n: modelPiece.id, x: move.to.x * 4 - 12, z: move.to.y * 4 - 12, a: 1000 });
+        this.ui.update();
         await sleep(1000);
         this.render()
     }
     onPass() {
+        this.ui.update();
         this.render()
     }
 
     onSelectCoord(coord: Coord) {
+        this.ui.update();
         this.render()
     }
 
@@ -171,6 +186,7 @@ export class GameView {
         // Send the model to the sky
         console.log(`Sending ${pieceId} to the sky`);
         W.move({ n: pieceId, y: 30, a: 1000 }, 500);
+        this.ui.update();
         await sleep(1000);
         this.render()
     }

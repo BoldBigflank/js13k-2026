@@ -82,6 +82,7 @@ import "./w-extensions";
     W._xrHead = null;
     W.lastFrame = undefined;
     W.gl.bindFramebuffer(W.gl.FRAMEBUFFER, null);
+    W.fitCanvas(true);
     setTimeout(W.draw, 16);
   };
 
@@ -520,6 +521,7 @@ import "./w-extensions";
 
     const onXRFrame = (t, frame) => {
       const session = frame.session;
+      if (!W.xrActive || session !== xrSession) return;
       session.requestAnimationFrame(onXRFrame);
 
       const dt = t - (lastXRFrameTime || t - 16);
