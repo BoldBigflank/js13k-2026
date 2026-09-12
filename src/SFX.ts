@@ -1,6 +1,6 @@
 import { Events } from "./scripts/libraries/Events";
 import { MOVE_EVENT, JUMP_EVENT, SELECT_EVENT, GAME_OVER_EVENT } from "./Types";
-import zzfx from './scripts/libraries/zzfxMicro.min.js';
+import zzfx from './scripts/libraries/ZzFXMicro.min.js';
 import { sleep } from "./scripts/Utils";
 
 const playSound = async (sound: string, delay: number = 0) => {
