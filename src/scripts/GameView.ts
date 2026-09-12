@@ -77,7 +77,7 @@ export class GameView {
         if (!this.floorName) {
             W.plane({
                 n: 'floor',
-                g: this.parentName, x: 0, y: -1, rx: -90, w: 200, h: 200, ts: 2, t: perlinTexture(), b: 'oc3', mix: 0.5, selectable: false,
+                g: this.parentName, x: 0, y: -1, rx: -90, w: 200, h: 200, ts: 2, t: perlinTexture(), b: '0c3', mix: 0.5, selectable: false,
             });        
         }
 
