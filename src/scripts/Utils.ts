@@ -32,9 +32,9 @@ export const RAINBOW_COLORS: Record<string, string> = {
 }
 
 export const MODES = [
-    { id: 0, name: 'PLAYER VS CPU' },
-    { id: 1, name: 'CPU VS PLAYER' },
-    { id: 2, name: 'PLAYER VS PLAYER' },
+    { id: 1, name: '1 PLAYER: PLAY AS UNICORNS' },
+    { id: 0, name: '1 PLAYER: PLAY AS GOBLIN' },
+    { id: 2, name: '2 PLAYERS' },
 ]
 
 export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))

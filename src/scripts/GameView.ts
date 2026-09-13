@@ -28,11 +28,11 @@ const modelForType = {
 }
 const onHoverStart = (object: any) => {
     W.move({ n: object.name, size: 1 })
-    W.move({ n: object.name, size: 1.1, a: 1000, ease: easeOutCubic })
+    W.move({ n: object.name, size: 1.1, a: 250, ease: easeOutCubic })
 }
 const onHoverEnd = (object: any) => {
     W.move({ n: object.name, size: 1.1 })
-    W.move({ n: object.name, size: 1, a: 1000, ease: easeOutCubic })
+    W.move({ n: object.name, size: 1, a: 250, ease: easeOutCubic })
 }
 
 const redTexture = colorTexture(1024, COLORS.RED);
@@ -49,7 +49,7 @@ export class GameView {
     constructor(game: Game) {
         this.game = game;
         this.parentName = `game_${Math.random().toString(36).substring(2, 15)}`;
-        W.group({ n: this.parentName, x: 0, y: -12, z: -16, rx: 0, ry: 0, rz: 0 });
+        W.group({ n: this.parentName, x: 0, y: -12, z: -12, rx: 0, ry: 0, rz: 0 });
         this.ui = new UI(game);
         this.ui.update();
         this.setupEvents();
@@ -204,7 +204,7 @@ export class GameView {
         // Move the model to the new position
         const angle = 90 - lookAt(move.from, move.to);
         W.move({ n: modelPiece.id, ry: angle })
-        W.move({ n: modelPiece.id, x: move.to.x * 4 - 12, z: move.to.y * 4 - 12, a: 1000 });
+        W.move({ n: modelPiece.id, x: move.to.x * 4 - 12, z: move.to.y * 4 - 12, a: 250 });
         this.ui.update();
         await sleep(1000);
         this.render()
@@ -221,7 +221,7 @@ export class GameView {
 
     async onJump(pieceId: string) {
         // Send the model to the sky
-        W.move({ n: pieceId, y: 30, a: 1000 }, 500);
+        W.move({ n: pieceId, y: 30, a: 1000 }, 125);
         this.ui.update();
         await sleep(1000);
         this.render()

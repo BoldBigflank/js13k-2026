@@ -2,19 +2,37 @@ import { MOVE_EVENT, PASS_EVENT, GAME_START_EVENT, FOX, GOOSE } from '../Types';
 import { Events } from './libraries/Events';
 import { Game, makeMove, isWinningState, getValidMoves, isJump, canMoveDiagonally } from './Game';
 import { sleep, sample } from './Utils';
-import { Side, Move } from '../Types';
-import { getPiecesByType } from './Board';
+import { Side, Move, Coord } from '../Types';
+import { getPiecesByType, getPieceTypeAtCoord } from './Board';
 import { GameState } from '../Types';
 
-// Positional weights: mobility > jumps so geese squeeze walks first.
-// Terminal scores dominate all positional terms.
+// Goose: deny jumps, prefer blocking landings, then restrict fox mobility.
 const WEIGHT_WIN = 10000;
 const WEIGHT_FOX_JUMPS = 1000;
-const WEIGHT_GOOSE_COUNT = 100;
+const WEIGHT_BLOCKED_JUMP = 100;
+const WEIGHT_FOX_MOBILITY = 50;
+const WEIGHT_GOOSE_COUNT = 10;
 const WEIGHT_FOX_POSITION = 100;
-const WEIGHT_GOOSE_MOBILITY = 10;
-const WEIGHT_GOOSE_NEAR_FOX = 1;
 const WEIGHT_MATERIAL = 60;
+
+// const FOX_ORTHO = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+// const FOX_DIAG = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
+
+const foxMovesOnBoard = (gameState: GameState): Move[] => {
+    return getValidMoves({ ...gameState, jumpOnly: false }, Side.FOX).filter(move => !move.pass);
+}
+
+// /** Adjacent goose + goose on the landing square: a jump that is plugged, not fled. */
+// const countBlockedFoxJumps = (gameState: GameState, fox: Coord): number => {
+//     const dirs = canMoveDiagonally(fox) ? FOX_ORTHO.concat(FOX_DIAG) : FOX_ORTHO;
+//     let blocked = 0;
+//     for (const [dx, dy] of dirs) {
+//         const over = getPieceTypeAtCoord(gameState.board, { x: fox.x + dx, y: fox.y + dy });
+//         const land = getPieceTypeAtCoord(gameState.board, { x: fox.x + 2 * dx, y: fox.y + 2 * dy });
+//         if (over === GOOSE && land === GOOSE) blocked++;
+//     }
+//     return blocked;
+// }
 
 /** Higher is better for `perspective`. */
 const evaluate = (gameState: GameState, perspective: Side): number => {
@@ -25,34 +43,26 @@ const evaluate = (gameState: GameState, perspective: Side): number => {
     let score = 0;
     const fox = getPiecesByType(gameState.board, FOX)[0];
     const geese = getPiecesByType(gameState.board, GOOSE);
+    const foxMoves = foxMovesOnBoard(gameState);
+    const foxJumps = foxMoves.filter(move => isJump(move)).length;
 
     if (perspective === Side.FOX) {
         // Points for each missing goose
         score += (10 / geese.length) * WEIGHT_MATERIAL;
         // More points for having 2 or more jumps available to the fox
-        const foxJumps = getValidMoves(gameState).filter(move => isJump(move)).length;
         if (foxJumps >= 2) { score += WEIGHT_FOX_JUMPS; }
         // Points if the fox is in the middle 3x3
         if (fox.x >= 3 && fox.x <= 3 && fox.y >= 3 && fox.y <= 3) { score += WEIGHT_FOX_POSITION; }
     } else { // Goose perspective
-        // Points for each goose
+        // 1. Never leave a goose jumpable (one jump outweighs all blocks/walks)
+        score -= foxJumps * WEIGHT_FOX_JUMPS;
+        // Prefer plugging the landing square over pulling the threatened goose away
+        // score += countBlockedFoxJumps(gameState, fox) * WEIGHT_BLOCKED_JUMP;
+        // 2. Squeeze the fox's legal moves
+        score -= foxMoves.length * WEIGHT_FOX_MOBILITY;
         score += geese.length * WEIGHT_GOOSE_COUNT;
-        // More points if there are no jumps available to the fox
-        const foxJumps = getValidMoves(gameState, Side.FOX).filter(move => isJump(move)).length;
-        if (!foxJumps) { score += WEIGHT_FOX_JUMPS; }
-        // Points if the geese are in diagonal slots
-        const geeseInDiagonalSlots = geese.filter(geese => {
-            return canMoveDiagonally(geese);
-        });
-        score += geeseInDiagonalSlots.length * WEIGHT_GOOSE_MOBILITY;
-        // Some points if the geese are within 3 spaces of the fox
-        const geeseWithin3 = geese.filter(geese => {
-            return Math.abs(geese.x - fox.x) + Math.abs(geese.y - fox.y) <= 3;
-        });
-        score += geeseWithin3.length * WEIGHT_GOOSE_NEAR_FOX;
-
     }
-    return perspective === Side.FOX ? score : -score;
+    return score;
 }
 
 const minimax = (
@@ -110,8 +120,8 @@ export class CPU {
         if (!cpu || this.game.gameState.turn !== cpu.side) {
             return;
         }
-        await sleep(1000);
-        const move = getBestMove(this.game.gameState, 3);
+        await sleep(350);
+        const move = getBestMove(this.game.gameState, 6);
         if (move) {
             this.game.move(move);
         }

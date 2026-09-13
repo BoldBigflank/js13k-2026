@@ -18,8 +18,8 @@ export class UI {
                 n: this.uiModel,
                 x: 0,
                 y: -10,
-                z: -5,
-                rx: -60,
+                z: -1,
+                rx: -70,
                 
                 d: 0.1,
                 w: 10,

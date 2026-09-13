@@ -80,8 +80,8 @@ const getValidToCoords = (gameState: GameState, piece: Coord | null): Coord[] =>
     if (piece === null) {
         return [];
     }
-    const { board, turn, jumpOnly } = gameState;
-    const isFox = turn === Side.FOX;
+    const { board, jumpOnly } = gameState;
+    const isFox = getPieceTypeAtCoord(board, piece) === Side.FOX;
     const toCoords: Coord[] = [];
     const moves = [...ORTHOGONAL_MOVES];
     if (canMoveDiagonally(piece)) {
