@@ -44,14 +44,16 @@ export const textTexture = (canvasSize: number, lines: string[]) => {
 };
 
 export const perlinTexture = (
-  startColor = "#000000",
-  endColor = "#ffffff",
   size = 64,
   scale = 2,
   octaves = 2,
   persistence = 0.5,
+  offsetX = 0,
+  offsetY = 0,
 ) => {
-  const key = `perlin-${startColor}-${endColor}-${size}-${scale}-${octaves}-${persistence}`;
+  const key = `perlin-${size}-${scale}-${octaves}-${persistence}-${offsetX}-${offsetY}`;
+  const startColor = "#000000";
+  const endColor = "#ffffff";
   if (_textures[key]) {
     return _textures[key];
   }
@@ -63,8 +65,8 @@ export const perlinTexture = (
   ctx.imageSmoothingEnabled = false;
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      const nx = x / size;
-      const ny = y / size;
+      const nx = offsetX + (x / size);
+      const ny = offsetY + (y / size);
       const value = octavePerlin2(nx, ny, scale, octaves, persistence);
       ctx.fillStyle = colorLerp(startColor, endColor, value);
       ctx.fillRect(x, y, 1, 1);

@@ -75,11 +75,49 @@ export class GameView {
         }
         
         if (!this.floorName) {
-            W.plane({
-                n: 'floor',
-                g: this.parentName, x: 0, y: -1, rx: -90, w: 200, h: 200, ts: 2, t: perlinTexture(), b: '0c3', mix: 0.5, selectable: false,
-            });        
+            for (let z = -100; z < 100; z=z+10) {
+                for (let x = -100; x < 100; x=x+10) {
+                    const tex = perlinTexture(64, 2, 1, 0.5, x, z);
+                    W.plane({
+                        n: `floor_${x}_${z}`,
+                        g: this.parentName, 
+                        x: x, 
+                        y: -1,
+                        z: z, 
+                        rx: -90, 
+                        w: 10, 
+                        h: 10, 
+                        ts: 2, 
+                        t: tex, 
+                        b: '0c3', 
+                        mix: 0.5, 
+                        selectable: false,
+                    });
+                }
+            }
+            // W.plane({
+            //     n: 'floor',
+            //     g: this.parentName, x: 0, y: -1, rx: -90, w: 200, h: 200, ts: 2, t: perlinTexture(), b: '0c3', mix: 0.5, selectable: false,
+            // });        
         }
+
+        // Skybox
+        W.cube({
+            n: 'skybox',
+            g: this.parentName,
+            x: 0,
+            y: 12,
+            z: 0,
+            rx: 0,
+            ry: 0,
+            rz: 0,
+            size: -1000,
+            t: perlinTexture(1024, 2, 1, 0.5, 0, 0),
+            b: '03C',
+            ns: true,
+            mix: 0.5,
+            selectable: false,
+        })
 
         // Initialize the tile models
         if (!this.tileModels.length) {

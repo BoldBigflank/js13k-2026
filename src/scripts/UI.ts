@@ -36,7 +36,7 @@ export class UI {
     uiTexture(): HTMLCanvasElement {
         const lines  = []
         if (this.game.gameState.winner) {
-            lines.push(`${this.game.gameState.winner === Side.FOX ? 'Goblin\'s' : 'Unicorns\''} win!`);
+            lines.push(this.game.gameState.winner === Side.FOX ? 'Goblin wins!' : 'Unicorns win!');
         } else {
             lines.push(`It's the ${this.game.gameState.turn === Side.FOX ? 'Goblin\'s' : 'Unicorns\''} turn`);
             // If it's a player not a cpu
