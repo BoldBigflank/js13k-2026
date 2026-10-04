@@ -14,6 +14,7 @@ const WEIGHT_FOX_MOBILITY = 50;
 const WEIGHT_GOOSE_COUNT = 10;
 const WEIGHT_FOX_POSITION = 100;
 const WEIGHT_MATERIAL = 60;
+const MAX_DEPTH = 5;
 
 // const FOX_ORTHO = [[-1, 0], [1, 0], [0, -1], [0, 1]];
 // const FOX_DIAG = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
@@ -121,7 +122,7 @@ export class CPU {
             return;
         }
         await sleep(350);
-        const move = getBestMove(this.game.gameState, 6);
+        const move = getBestMove(this.game.gameState, MAX_DEPTH);
         if (move) {
             this.game.move(move);
         }
